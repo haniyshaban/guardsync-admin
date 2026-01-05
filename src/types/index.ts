@@ -26,6 +26,8 @@ export interface Site {
     lng: number;
   };
   geofenceRadius: number; // in meters
+  geofenceType?: 'radius' | 'polygon';
+  geofencePolygon?: { lat: number; lng: number }[];
   assignedGuards: string[];
   isActive: boolean;
   createdAt: Date;

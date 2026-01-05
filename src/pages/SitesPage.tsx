@@ -3,8 +3,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { mockSites, mockGuards } from '@/data/mockData';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { 
   Building2, 
   Plus, 
@@ -17,8 +22,41 @@ import {
 } from 'lucide-react';
 
 export default function SitesPage() {
-  const [sites] = useState(mockSites);
+  const [sites, setSites] = useState(mockSites);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [activeSite, setActiveSite] = useState<typeof mockSites[0] | null>(null);
+  const [geofenceMode, setGeofenceMode] = useState<'radius' | 'polygon'>('radius');
+  const [radiusValue, setRadiusValue] = useState<number>(100);
+  const [polygonText, setPolygonText] = useState<string>('');
+  const [polygonPoints, setPolygonPoints] = useState<{lat:number;lng:number}[]>([]);
+
+  // Load persisted sites from localStorage on mount (if present)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('gw_sites');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const rev = parsed.map((s: any) => ({
+            ...s,
+            createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
+            geofenceRadius: s.geofenceRadius ? Number(s.geofenceRadius) : 0,
+          }));
+          setSites(rev);
+          // also sync the imported mockSites array for other code that reads it
+          try {
+            mockSites.length = 0;
+            rev.forEach((r: any) => mockSites.push(r));
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    } catch (err) {
+      // ignore parse errors
+    }
+  }, []);
 
   const filteredSites = sites.filter(site => 
     site.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -55,6 +93,119 @@ export default function SitesPage() {
             Add New Site
           </Button>
         </div>
+
+        {/* Configure Geofence Dialog */}
+        <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Configure Geofence</DialogTitle>
+              <DialogDescription>Choose geofence type and edit values for {activeSite?.name}</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-2">
+              <div>
+                <div className="text-sm text-muted-foreground mb-2">Geofence Mode</div>
+                <RadioGroup value={geofenceMode} onValueChange={(v: any) => setGeofenceMode(v)} className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <RadioGroupItem value="radius" />
+                    <span>Radius (meters)</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <RadioGroupItem value="polygon" />
+                    <span>Custom Polygon</span>
+                  </label>
+                </RadioGroup>
+              </div>
+
+              {geofenceMode === 'radius' && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-2">Radius (meters)</div>
+                  <Input value={radiusValue} onChange={(e) => setRadiusValue(Number(e.target.value))} type="number" />
+                </div>
+              )}
+
+              {geofenceMode === 'polygon' && (
+                <div>
+                  <div className="text-sm text-muted-foreground mb-2">Draw polygon on map (click to add points)</div>
+                  <div className="w-full h-64 rounded-md overflow-hidden border">
+                    <MapContainer center={[activeSite?.location.lat || 12.97, activeSite?.location.lng || 77.59]} zoom={13} className="w-full h-full">
+                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                      <Polygon positions={polygonPoints.map(p => [p.lat, p.lng]) as any} pathOptions={{ color: 'blue', fillOpacity: 0.1 }} />
+                      {polygonPoints.map((p, i) => (
+                        <Marker key={i} position={[p.lat, p.lng]} />
+                      ))}
+                      <MapClickHandler onClick={(lat,lng) => setPolygonPoints(prev => [...prev, {lat,lng}])} />
+                    </MapContainer>
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Button variant="outline" size="sm" onClick={() => setPolygonPoints(prev => prev.slice(0,-1))}>Undo</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setPolygonPoints([])}>Clear</Button>
+                    <div className="text-xs text-muted-foreground ml-auto">You can also paste JSON below</div>
+                  </div>
+                  <Textarea value={polygonText} onChange={(e) => setPolygonText(e.target.value)} rows={3} className="mt-2" />
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => setIsConfigOpen(false)}>Cancel</Button>
+                <Button onClick={() => {
+                  if (!activeSite) return;
+                  const updated = sites.map(s => {
+                    if (s.id !== activeSite.id) return s;
+                    const copy: any = { ...s };
+                    copy.geofenceType = geofenceMode;
+                    if (geofenceMode === 'radius') {
+                      copy.geofenceRadius = Number(radiusValue) || copy.geofenceRadius;
+                      delete copy.geofencePolygon;
+                    } else {
+                      // Prefer polygonPoints drawn on the map; fall back to pasted JSON
+                      if (polygonPoints && polygonPoints.length > 0) {
+                        copy.geofencePolygon = polygonPoints.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+                      } else {
+                        try {
+                          const parsed = JSON.parse(polygonText);
+                          if (Array.isArray(parsed)) {
+                            copy.geofencePolygon = parsed.map((p: any) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+                          }
+                        } catch (err) {
+                          // ignore parse error
+                        }
+                      }
+                    }
+                    return copy;
+                  });
+                  setSites(updated);
+                  // Persist changes to the shared in-memory mockSites so other pages see the update
+                  try {
+                    const updatedSite = updated.find(u => u.id === activeSite.id);
+                    if (updatedSite) {
+                      const idx = mockSites.findIndex(ms => ms.id === updatedSite.id);
+                      if (idx >= 0) {
+                        mockSites[idx] = updatedSite;
+                      } else {
+                        mockSites.push(updatedSite);
+                      }
+                    }
+                  } catch (err) {
+                    // ignore
+                  }
+                  // Save to localStorage so changes persist across reloads
+                  try {
+                    localStorage.setItem('gw_sites', JSON.stringify(updated));
+                  } catch (err) {
+                    // ignore
+                  }
+                  setIsConfigOpen(false);
+                }}>Save</Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+          {/* Map click handler component */}
+        
 
         {/* Search */}
         <div className="relative max-w-md">
@@ -113,7 +264,7 @@ export default function SitesPage() {
                       <span className="text-xs">Geofence</span>
                     </div>
                     <p className="text-xl font-bold font-mono mt-1">
-                      {site.geofenceRadius}m
+                      {site.geofenceType === 'polygon' ? 'Polygon' : `${site.geofenceRadius}m`}
                     </p>
                   </div>
                 </div>
@@ -125,7 +276,14 @@ export default function SitesPage() {
 
                 {/* Actions */}
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => {
+                    setActiveSite(site);
+                    setGeofenceMode(site.geofenceType || 'radius');
+                    setRadiusValue(site.geofenceRadius || 100);
+                    setPolygonText(site.geofencePolygon ? JSON.stringify(site.geofencePolygon, null, 2) : '');
+                    setPolygonPoints(site.geofencePolygon ? site.geofencePolygon.map((p: any) => ({ lat: Number(p.lat), lng: Number(p.lng) })) : []);
+                    setIsConfigOpen(true);
+                  }}>
                     <Settings className="w-4 h-4 mr-1" />
                     Configure
                   </Button>
@@ -143,4 +301,14 @@ export default function SitesPage() {
       </div>
     </DashboardLayout>
   );
+}
+
+// Map click handler to capture clicks and pass lat/lng to parent
+function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onClick(e.latlng.lat, e.latlng.lng);
+    }
+  });
+  return null;
 }

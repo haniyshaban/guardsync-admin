@@ -9,17 +9,17 @@ const generateRandomLocation = (centerLat: number, centerLng: number, radiusKm: 
   return { lat, lng };
 };
 
-// Base location (New Delhi, India)
-const baseLat = 28.6139;
-const baseLng = 77.2090;
+// Base location (Bangalore, India)
+const baseLat = 12.9716;
+const baseLng = 77.5946;
 
 // Generate mock sites
 export const mockSites: Site[] = [
   {
     id: 'site-1',
-    name: 'Tech Park Alpha',
-    address: 'Sector 62, Noida, UP',
-    location: { lat: 28.6280, lng: 77.3649 },
+    name: 'Whitefield Tech Park',
+    address: 'Whitefield, Bangalore',
+    location: { lat: 12.9698, lng: 77.7491 },
     geofenceRadius: 100,
     assignedGuards: [],
     isActive: true,
@@ -27,9 +27,9 @@ export const mockSites: Site[] = [
   },
   {
     id: 'site-2',
-    name: 'Metro Mall Complex',
-    address: 'Connaught Place, New Delhi',
-    location: { lat: 28.6315, lng: 77.2167 },
+    name: 'Koramangala Mall Complex',
+    address: 'Koramangala, Bangalore',
+    location: { lat: 12.9350, lng: 77.6190 },
     geofenceRadius: 150,
     assignedGuards: [],
     isActive: true,
@@ -37,9 +37,9 @@ export const mockSites: Site[] = [
   },
   {
     id: 'site-3',
-    name: 'Infinity Towers',
-    address: 'Cyber City, Gurugram',
-    location: { lat: 28.4595, lng: 77.0266 },
+    name: 'MG Road Business Center',
+    address: 'MG Road, Bangalore',
+    location: { lat: 12.9759, lng: 77.6050 },
     geofenceRadius: 100,
     assignedGuards: [],
     isActive: true,
@@ -47,9 +47,9 @@ export const mockSites: Site[] = [
   },
   {
     id: 'site-4',
-    name: 'Heritage Business Center',
-    address: 'Nehru Place, New Delhi',
-    location: { lat: 28.5494, lng: 77.2519 },
+    name: 'Electronic City Park',
+    address: 'Electronic City, Bangalore',
+    location: { lat: 12.8390, lng: 77.6770 },
     geofenceRadius: 120,
     assignedGuards: [],
     isActive: true,
@@ -57,9 +57,9 @@ export const mockSites: Site[] = [
   },
   {
     id: 'site-5',
-    name: 'Green Valley Residences',
-    address: 'Dwarka, New Delhi',
-    location: { lat: 28.5921, lng: 77.0460 },
+    name: 'Jayanagar Residences',
+    address: 'Jayanagar, Bangalore',
+    location: { lat: 12.9250, lng: 77.5838 },
     geofenceRadius: 200,
     assignedGuards: [],
     isActive: false,

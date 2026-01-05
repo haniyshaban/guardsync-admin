@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Guard, Site } from '@/types';
 import { Badge } from '@/components/ui/badge';
@@ -79,6 +79,14 @@ function MapBoundsUpdater({ guards, sites }: MapBoundsUpdaterProps) {
     
     sites.forEach(site => {
       allPoints.push([site.location.lat, site.location.lng]);
+      // include polygon points in bounds if present
+      if ((site as any).geofenceType === 'polygon' && Array.isArray((site as any).geofencePolygon)) {
+        ((site as any).geofencePolygon as Array<any>).forEach((p: any) => {
+          if (p && typeof p.lat === 'number' && typeof p.lng === 'number') {
+            allPoints.push([p.lat, p.lng]);
+          }
+        });
+      }
     });
 
     if (allPoints.length > 0) {
@@ -124,6 +132,30 @@ export function LiveMap({
     }
   };
 
+  // Point-in-polygon (ray-casting) helper
+  const pointInPolygon = (point: [number, number], vs: Array<[number, number]>): boolean => {
+    const x = point[0], y = point[1];
+    let inside = false;
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+      const xi = vs[i][0], yi = vs[i][1];
+      const xj = vs[j][0], yj = vs[j][1];
+      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + Number.EPSILON) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  };
+
+  const isPointInsideSiteGeofence = (lat: number, lng: number, site: Site) => {
+    const pt: [number, number] = [lat, lng];
+    if ((site as any).geofenceType === 'polygon' && Array.isArray((site as any).geofencePolygon) && (site as any).geofencePolygon.length > 0) {
+      const vs = (site as any).geofencePolygon.map((p: any) => [p.lat, p.lng] as [number, number]);
+      return pointInPolygon(pt, vs);
+    }
+    // fallback to circle
+    const dist = L.latLng(lat, lng).distanceTo(L.latLng(site.location.lat, site.location.lng));
+    return dist <= (site.geofenceRadius || 0);
+  };
+
   return (
     <div className="relative w-full h-full rounded-lg overflow-hidden border border-border">
       <MapContainer
@@ -139,21 +171,35 @@ export function LiveMap({
         
         <MapBoundsUpdater guards={guards} sites={sites} />
 
-        {/* Render site geofences */}
+        {/* Render site geofences (radius or polygon) */}
         {showGeofences && sites.map(site => (
           site.isActive && (
-            <Circle
-              key={`geofence-${site.id}`}
-              center={[site.location.lat, site.location.lng]}
-              radius={site.geofenceRadius}
-              pathOptions={{
-                color: 'hsl(192, 95%, 50%)',
-                fillColor: 'hsl(192, 95%, 50%)',
-                fillOpacity: 0.1,
-                weight: 2,
-                dashArray: '5, 5',
-              }}
-            />
+            ((site as any).geofenceType === 'polygon' && Array.isArray((site as any).geofencePolygon) && (site as any).geofencePolygon.length > 0)
+            ? (
+              <Polygon
+                key={`geofence-poly-${site.id}`}
+                positions={((site as any).geofencePolygon as Array<any>).map((p: any) => [p.lat, p.lng]) as any}
+                pathOptions={{
+                  color: 'hsl(192, 95%, 50%)',
+                  fillColor: 'hsl(192, 95%, 50%)',
+                  fillOpacity: 0.08,
+                  weight: 2,
+                }}
+              />
+            ) : (
+              <Circle
+                key={`geofence-${site.id}`}
+                center={[site.location.lat, site.location.lng]}
+                radius={site.geofenceRadius}
+                pathOptions={{
+                  color: 'hsl(192, 95%, 50%)',
+                  fillColor: 'hsl(192, 95%, 50%)',
+                  fillOpacity: 0.1,
+                  weight: 2,
+                  dashArray: '5, 5',
+                }}
+              />
+            )
           )
         ))}
 
@@ -180,7 +226,10 @@ export function LiveMap({
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Geofence: {site.geofenceRadius}m radius
+                  { (site as any).geofenceType === 'polygon' && Array.isArray((site as any).geofencePolygon)
+                    ? `Geofence: custom polygon (${(site as any).geofencePolygon.length} points)`
+                    : `Geofence: ${site.geofenceRadius}m radius`
+                  }
                 </p>
               </div>
             </Popup>
@@ -190,42 +239,50 @@ export function LiveMap({
         {/* Render guard markers */}
         {guards.map(guard => (
           guard.location && (
-            <Marker
-              key={guard.id}
-              position={[guard.location.lat, guard.location.lng]}
-              icon={createGuardIcon(guard.status)}
-              eventHandlers={{
-                click: () => onGuardClick?.(guard),
-              }}
-            >
-              <Popup>
-                <div className="p-2 min-w-[180px]">
-                  <div className="flex items-center gap-2">
-                    <div className={`status-dot status-${guard.status}`} />
-                    <h3 className="font-semibold text-foreground">{guard.name}</h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    ID: {guard.employeeId}
-                  </p>
-                  <div className="mt-2">
-                    <Badge variant={getStatusVariant(guard.status)}>
-                      {guard.status.charAt(0).toUpperCase() + guard.status.slice(1)}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Last seen: {formatDistanceToNow(guard.lastSeen, { addSuffix: true })}
-                  </p>
-                  {guard.clockedIn && guard.clockInTime && (
-                    <p className="text-xs text-muted-foreground">
-                      Clocked in: {formatDistanceToNow(guard.clockInTime, { addSuffix: true })}
-                    </p>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
+            (() => {
+              // Determine if guard is inside any site's geofence
+              const insideAny = sites.some(site => isPointInsideSiteGeofence(guard.location!.lat, guard.location!.lng, site));
+              const effectiveStatus: Guard['status'] = guard.status === 'alert' ? 'alert' : (insideAny ? 'online' : guard.status);
+              
+              return (
+                <Marker
+                  key={guard.id}
+                  position={[guard.location.lat, guard.location.lng]}
+                  icon={createGuardIcon(effectiveStatus)}
+                  eventHandlers={{
+                    click: () => onGuardClick?.(guard),
+                  }}
+                >
+                  <Popup>
+                    <div className="p-2 min-w-[180px]">
+                      <div className="flex items-center gap-2">
+                        <div className={`status-dot status-${guard.status}`} />
+                        <h3 className="font-semibold text-foreground">{guard.name}</h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ID: {guard.employeeId}
+                      </p>
+                      <div className="mt-2">
+                        <Badge variant={getStatusVariant(guard.status)}>
+                          {guard.status.charAt(0).toUpperCase() + guard.status.slice(1)}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Last seen: {formatDistanceToNow(guard.lastSeen, { addSuffix: true })}
+                      </p>
+                      {guard.clockedIn && guard.clockInTime && (
+                        <p className="text-xs text-muted-foreground">
+                          Clocked in: {formatDistanceToNow(guard.clockInTime, { addSuffix: true })}
+                        </p>
+                      )}
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            })()
           )
         ))}
-      </MapContainer>
+        </MapContainer>
 
       {/* Map legend */}
       <div className="absolute bottom-4 left-4 z-[1000] bg-card/95 backdrop-blur-sm rounded-lg border border-border p-3">
