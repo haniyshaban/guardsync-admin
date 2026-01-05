@@ -54,7 +54,7 @@ export default function GuardsPage() {
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
               <Users className="w-5 h-5 text-primary" />
@@ -67,12 +67,12 @@ export default function GuardsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button variant="outline">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto">
               <Download className="w-4 h-4 mr-2" />
               Export
             </Button>
-            <Button variant="glow">
+            <Button variant="glow" className="w-full sm:w-auto">
               Add Guard
             </Button>
           </div>
@@ -81,7 +81,7 @@ export default function GuardsPage() {
         {/* Filters */}
         <Card variant="elevated">
           <CardContent className="p-4">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -92,7 +92,7 @@ export default function GuardsPage() {
                 />
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 overflow-auto">
                 <Filter className="w-4 h-4 text-muted-foreground" />
                 <div className="flex gap-1">
                   {(['all', 'online', 'idle', 'offline', 'alert'] as const).map((status) => (

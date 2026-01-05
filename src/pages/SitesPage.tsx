@@ -330,18 +330,20 @@ export default function SitesPage() {
 
                 {/* Actions */}
                 <div className="flex items-center justify-between">
-                  <Link to={`/live-map?site=${site.id}`}>
-                    <Button variant="default" size="sm" className="h-10 w-36 flex items-center justify-center">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <Link to={`/live-map?site=${site.id}`} className="w-full sm:w-auto">
+                    <Button variant="default" size="sm" className="h-10 w-full sm:w-36 flex items-center justify-center">
                       <MapPin className="w-4 h-4 mr-1" />
                       View Site
                     </Button>
                   </Link>
-                  <Link to={`/manage-site/${site.id}`}>
-                    <Button variant="outline" size="sm" className="h-10 w-36 flex items-center justify-center">
+                  <Link to={`/manage-site/${site.id}`} className="w-full sm:w-auto">
+                    <Button variant="outline" size="sm" className="h-10 w-full sm:w-36 flex items-center justify-center">
                       <Settings className="w-4 h-4 mr-1" />
                       Manage Site
                     </Button>
                   </Link>
+                </div>
                 </div>
               </CardContent>
             </Card>

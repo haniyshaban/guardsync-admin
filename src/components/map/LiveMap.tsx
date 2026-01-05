@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Guard, Site } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sun, Moon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
 // Fix for default marker icons in React-Leaflet
@@ -16,6 +16,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
+// Custom guard marker icons based on status
 // Custom guard marker icons based on status
 const createGuardIcon = (status: Guard['status']) => {
   const colors = {
@@ -41,15 +42,33 @@ const createGuardIcon = (status: Guard['status']) => {
   });
 };
 
-// Site marker icon
-const createSiteIcon = () => {
+// Site marker icon (active/inactive)
+const createSiteIcon = (active: boolean = true) => {
+  if (active) {
+    return L.divIcon({
+      className: 'custom-site-marker',
+      html: `
+        <div class="relative">
+          <div class="w-8 h-8 rounded-lg bg-primary/80 border-2 border-primary flex items-center justify-center shadow-lg" style="background: hsl(192, 95%, 50%); border-color: hsl(192, 95%, 60%);">
+            <svg class="w-4 h-4" fill="white" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clip-rule="evenodd" />
+            </svg>
+          </div>
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    });
+  }
+
+  // Inactive - greyed, muted icon
   return L.divIcon({
-    className: 'custom-site-marker',
+    className: 'custom-site-marker-inactive',
     html: `
       <div class="relative">
-        <div class="w-8 h-8 rounded-lg bg-primary/80 border-2 border-primary flex items-center justify-center shadow-lg" style="background: hsl(192, 95%, 50%); border-color: hsl(192, 95%, 60%);">
-          <svg class="w-4 h-4" fill="white" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clip-rule="evenodd" />
+        <div class="w-8 h-8 rounded-lg bg-gray-200 border-2 border-gray-300 flex items-center justify-center shadow-sm" style="background: #e5e7eb; border-color: #d1d5db;">
+          <svg class="w-4 h-4 text-gray-600" fill="#6b7280" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
           </svg>
         </div>
       </div>
@@ -72,7 +91,6 @@ function MapBoundsUpdater({ guards, sites, focusSiteId }: MapBoundsUpdaterProps)
   useEffect(() => {
     // If a specific site focus is requested, skip auto-fitting to all points
     if (focusSiteId) {
-      console.log('[MapBoundsUpdater] skipping auto-fit because focusSiteId=', focusSiteId);
       return;
     }
     if (hasSetBounds.current) return;
@@ -150,35 +168,16 @@ function MapFocusHandler({ sites, focusSiteId }: { sites: Site[]; focusSiteId?: 
           const radius = Number((site as any).geofenceRadius) || 0;
           if (radius > 0) {
             const lat = site.location.lat;
-                <div className="absolute top-3 right-3 z-[9999]">
-                  <button
-                    onClick={() => {
-                      const idx = availableThemes.indexOf(mapTheme);
-                      const next = availableThemes[(idx + 1) % availableThemes.length];
-                      setMapTheme(next);
-                    }}
-                    aria-label="Toggle map theme"
-                    title={mapTheme === 'streets-dark' ? 'Streets Dark' : mapTheme === 'carto-dark' ? 'Dark' : 'Light'}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '6px 10px',
-                      borderRadius: 8,
-                      boxShadow: mapTheme === 'carto-light' ? '0 6px 18px rgba(15, 23, 42, 0.12)' : '0 4px 8px rgba(0,0,0,0.45)',
-                      border: mapTheme === 'carto-light' ? '1px solid rgba(15,23,42,0.06)' : '1px solid rgba(255,255,255,0.06)',
-                      background: mapTheme === 'carto-light' ? '#ffffff' : 'rgba(0,0,0,0.6)',
-                      color: mapTheme === 'carto-light' ? '#0f172a' : '#ffffff',
-                      zIndex: 9999,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {mapTheme === 'carto-light' && <Sun className="h-4 w-4" />}
-                    {mapTheme === 'carto-dark' && <Moon className="h-4 w-4" />}
-                    {mapTheme === 'streets-dark' && <Moon className="h-4 w-4 text-amber-300" />}
-                    <span style={{ fontSize: 12, fontWeight: 600 }}>{mapTheme === 'carto-light' ? 'Light' : mapTheme === 'carto-dark' ? 'Dark' : 'Streets'}</span>
-                  </button>
-                </div>
+            const lng = site.location.lng;
+            const mapSize = map.getSize();
+            const mapWidth = (mapSize && mapSize.x) ? mapSize.x : 800;
+            const desiredFraction = 0.6; // target diameter occupies 60% of map width
+            const metersPerPixel = (radius * 2) / (mapWidth * desiredFraction);
+            const equatorMPerPx = 156543.03392804097;
+            const metersPerPixelAtZoom0 = equatorMPerPx * Math.cos(lat * Math.PI / 180);
+            let zoom = Math.floor(Math.log2(metersPerPixelAtZoom0 / metersPerPixel));
+            if (!isFinite(zoom) || Number.isNaN(zoom)) zoom = 15;
+            const MAX_FOCUS_ZOOM_LOCAL = 16;
             zoom = Math.min(Math.max(zoom, 3), MAX_FOCUS_ZOOM_LOCAL);
 
             // Retry logic using moveend: wait for the map to finish moving before retrying.
@@ -355,32 +354,11 @@ export function LiveMap({
     return dist <= (site.geofenceRadius || 0);
   };
 
-  const [mapTheme, setMapTheme] = useState<'light' | 'dark'>(() => {
-    try { return (localStorage.getItem('gw_map_theme') === 'dark') ? 'dark' : 'light'; } catch { return 'light'; }
-  });
-
-  const tileUrl = mapTheme === 'dark'
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
-  useEffect(() => {
-    try { localStorage.setItem('gw_map_theme', mapTheme); } catch {}
-  }, [mapTheme]);
+  const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   return (
     <div className="relative w-full h-full rounded-lg overflow-hidden border border-border">
-      <div className="absolute top-3 right-3 z-30">
-        <Button
-          variant="outline"
-          className="h-9 w-9 p-0"
-          onClick={() => setMapTheme(t => t === 'light' ? 'dark' : 'light')}
-          aria-label="Toggle map theme"
-        >
-          {mapTheme === 'light'
-            ? <Moon className="h-4 w-4 text-slate-900" />
-            : <Sun className="h-4 w-4 text-white" />}
-        </Button>
-      </div>
+      
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
@@ -438,7 +416,7 @@ export function LiveMap({
           <Marker
             key={site.id}
             position={getSiteMarkerPosition(site)}
-            icon={createSiteIcon()}
+            icon={createSiteIcon(!!site.isActive)}
             eventHandlers={{
               click: () => onSiteClick?.(site),
             }}
@@ -461,6 +439,11 @@ export function LiveMap({
                         : `Geofence: ${site.geofenceRadius}m radius`
                       }
                     </p>
+                    <div className="mt-3">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link to={`/manage-site/${site.id}`}>Manage Site</Link>
+                      </Button>
+                    </div>
               </div>
             </Popup>
           </Marker>
@@ -494,6 +477,11 @@ export function LiveMap({
                   {guard.clockedIn && guard.clockInTime && (
                     <p className="text-xs text-muted-foreground">Clocked in: {formatDistanceToNow(guard.clockInTime, { addSuffix: true })}</p>
                   )}
+                  <div className="mt-3">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/guards/${guard.id}`}>View Guard</Link>
+                    </Button>
+                  </div>
                 </div>
               </Popup>
             </Marker>

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { mockGuards, mockSites } from '@/data/mockData';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Map, 
   Layers, 
@@ -14,7 +14,9 @@ import {
   Building2,
   ZoomIn,
   ZoomOut,
-  Maximize2
+  Maximize2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Guard, Site } from '@/types';
 import { useSearchParams, Link } from 'react-router-dom';
@@ -33,11 +35,25 @@ export default function LiveMapPage() {
   const idleGuards = guards.filter(g => g.status === 'idle').length;
   const alertGuards = guards.filter(g => g.status === 'alert').length;
 
+  // If a site id is provided via query param, expand/select that site on load
+  useEffect(() => {
+    if (focusSiteId) {
+      const s = sites.find(s => s.id === focusSiteId) || null;
+      setSelectedSite(s as any);
+    }
+  }, [focusSiteId, sites]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollList = (delta: number) => {
+    if (!listRef.current) return;
+    listRef.current.scrollBy({ left: delta, behavior: 'smooth' });
+  };
+
   return (
     <DashboardLayout>
       <div className="h-[calc(100vh-0px)] flex flex-col">
         {/* Header */}
-        <div className="p-6 pb-4 flex items-center justify-between border-b border-border">
+        <div className="p-6 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-border gap-3">
           <div className="flex items-center gap-4">
             <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
               <Map className="w-5 h-5 text-primary" />
@@ -50,7 +66,7 @@ export default function LiveMapPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 w-full sm:w-auto justify-between sm:justify-end">
             {/* Quick Stats */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -94,10 +110,10 @@ export default function LiveMapPage() {
         </div>
 
         {/* Map Content */}
-        <div className="flex-1 flex">
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
           {/* Main Map */}
-          <div className="flex-1 p-4">
-            <div className="h-full rounded-lg overflow-hidden">
+          <div className="flex-1 p-4 min-h-0">
+            <div className="h-[60vh] sm:h-full min-h-[280px] rounded-lg overflow-hidden">
               <LiveMap
                 guards={guards}
                 sites={sites}
@@ -112,8 +128,70 @@ export default function LiveMapPage() {
             </div>
           </div>
 
-          {/* Sidebar Panel */}
-          <div className="w-80 border-l border-border p-4 space-y-4 overflow-y-auto">
+          {/* Mobile sliding site panel (hidden when a site is selected) */}
+          {!selectedSite && (
+            <div className="sm:hidden fixed left-0 right-0 bottom-0 z-40 p-3 pointer-events-auto">
+              <div className="relative">
+                <button aria-label="scroll left" onClick={() => scrollList(-240)} className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-card/80 p-1 rounded-md">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div ref={listRef} className="overflow-x-auto no-scrollbar flex gap-3 snap-x snap-mandatory py-2 px-8">
+                  {sites.map(site => (
+                    <div key={site.id} onClick={() => { setSelectedSite(site); try{ setSearchParams({ site: site.id }); } catch(e){} }} className="snap-start min-w-[72%] bg-card p-3 rounded-lg border border-border cursor-pointer">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-sm">{site.name}</p>
+                          <p className="text-xs text-muted-foreground">{site.address}</p>
+                        </div>
+                        <Badge variant={site.isActive ? 'success' : 'secondary'} className="text-xs">{site.isActive ? 'Active' : 'Inactive'}</Badge>
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        <span>{site.assignedGuards.length} guards</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button aria-label="scroll right" onClick={() => scrollList(240)} className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-card/80 p-1 rounded-md">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile bottom sheet for selected site so it doesn't push/cover the map */}
+          {selectedSite && (
+            <div className="sm:hidden fixed left-0 right-0 bottom-0 z-50 p-4 bg-card border-t border-border">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium">{selectedSite.name}</p>
+                  <p className="text-xs text-muted-foreground">{selectedSite.address}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={selectedSite.isActive ? 'success' : 'secondary'} className="text-xs">{selectedSite.isActive ? 'Active' : 'Inactive'}</Badge>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedSite(null)}>Close</Button>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div className="p-2 rounded bg-muted/30">
+                  <div className="text-xs text-muted-foreground">Guards</div>
+                  <div className="font-mono font-bold">{selectedSite.assignedGuards.length}</div>
+                </div>
+                <div className="p-2 rounded bg-muted/30">
+                  <div className="text-xs text-muted-foreground">Geofence</div>
+                  <div className="font-mono font-bold">{selectedSite.geofenceType === 'polygon' ? 'Polygon' : `${selectedSite.geofenceRadius || '—'}m`}</div>
+                </div>
+              </div>
+              <div className="mt-3">
+                <Link to={`/manage-site/${selectedSite.id}`} onClick={(e) => e.stopPropagation()}>
+                  <Button variant="outline" className="w-full" size="sm">Manage Site</Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Sidebar Panel (hidden on small screens; mobile uses bottom-sheet) */}
+          <div className="hidden lg:block w-80 border-l border-border p-4 space-y-4 overflow-y-auto">
             {/* Sites Overview */}
             <Card variant="elevated">
               <CardHeader className="pb-3">

@@ -158,9 +158,9 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 mt-4">
-              <Button onClick={downloadCSV}>Export CSV</Button>
-              <Button variant="outline" onClick={openPrintable}>Export PDF (Print)</Button>
+            <div className="flex flex-col md:flex-row gap-3 mt-4">
+              <Button onClick={downloadCSV} className="w-full md:w-auto">Export CSV</Button>
+              <Button variant="outline" onClick={openPrintable} className="w-full md:w-auto">Export PDF (Print)</Button>
             </div>
           </CardContent>
         </Card>

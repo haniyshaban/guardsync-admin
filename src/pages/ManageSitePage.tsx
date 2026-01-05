@@ -293,7 +293,13 @@ export default function ManageSitePage() {
             <CardContent>
               <p className="text-sm text-muted-foreground">Deleting a site removes it and will unassign any guards. This action is irreversible.</p>
               <div className="mt-4">
-                <Button variant="outline" onClick={deleteSite} className="w-full border-red-200 text-red-600 bg-red-50 hover:bg-red-100">Delete site</Button>
+                <Button
+                  variant="outline"
+                  onClick={deleteSite}
+                  className="w-full sm:w-1/5 text-left border-red-200 text-red-600 bg-red-50 hover:bg-red-100 hover:text-red-700 hover:border-red-300 focus:text-red-700"
+                >
+                  Delete site
+                </Button>
               </div>
             </CardContent>
           </Card>

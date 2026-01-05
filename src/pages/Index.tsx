@@ -17,13 +17,19 @@ import {
   Download,
   Clock
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 
 const Index = () => {
   const [guards] = useState(mockGuards);
   const [sites] = useState(mockSites);
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
   const stats = calculateDashboardStats(guards, sites);
 
   const recentAlerts = guards.filter(g => g.status === 'alert').slice(0, 5);
@@ -39,19 +45,21 @@ const Index = () => {
               Real-time overview of all security operations
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground w-full sm:w-auto">
               <Clock className="w-4 h-4" />
-              <span className="font-mono">{format(new Date(), 'HH:mm:ss')}</span>
+              <span className="font-mono">{format(now, 'HH:mm:ss')}</span>
             </div>
-            <Button variant="outline" size="sm">
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
-            <Button variant="glow" size="sm">
-              <Download className="w-4 h-4 mr-2" />
-              Export Report
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+              <Button variant="glow" size="sm" className="w-full sm:w-auto">
+                <Download className="w-4 h-4 mr-2" />
+                Export Report
+              </Button>
+            </div>
           </div>
         </div>
 

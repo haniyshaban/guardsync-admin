@@ -68,12 +68,12 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={handleReset} disabled={!hasChanges}>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+            <Button variant="outline" onClick={handleReset} disabled={!hasChanges} className="w-full sm:w-auto">
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset
             </Button>
-            <Button variant="glow" onClick={handleSave} disabled={!hasChanges}>
+            <Button variant="glow" onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">
               <Save className="w-4 h-4 mr-2" />
               Save Changes
             </Button>
