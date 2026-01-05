@@ -167,7 +167,7 @@ export function LiveMap({
               click: () => onSiteClick?.(site),
             }}
           >
-            <Popup className="site-popup">
+            <Popup>
               <div className="p-2 min-w-[200px]">
                 <h3 className="font-semibold text-foreground">{site.name}</h3>
                 <p className="text-sm text-muted-foreground mt-1">{site.address}</p>
@@ -198,7 +198,7 @@ export function LiveMap({
                 click: () => onGuardClick?.(guard),
               }}
             >
-              <Popup className="guard-popup">
+              <Popup>
                 <div className="p-2 min-w-[180px]">
                   <div className="flex items-center gap-2">
                     <div className={`status-dot status-${guard.status}`} />
