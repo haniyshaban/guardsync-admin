@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { mockGuards, mockSites } from '@/data/mockData';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Guard } from '@/types';
 import { 
   Users, 
@@ -21,6 +22,15 @@ export default function GuardsPage() {
   const [guards] = useState(mockGuards);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<Guard['status'] | 'all'>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const param = searchParams.get('status');
+    const allowed = ['all', 'online', 'idle', 'offline', 'alert'];
+    if (param && allowed.includes(param)) {
+      setStatusFilter(param as Guard['status'] | 'all');
+    }
+  }, [searchParams]);
 
   const filteredGuards = guards.filter(guard => {
     const matchesSearch = guard.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -90,7 +100,11 @@ export default function GuardsPage() {
                       key={status}
                       variant={statusFilter === status ? 'default' : 'ghost'}
                       size="sm"
-                      onClick={() => setStatusFilter(status)}
+                      onClick={() => {
+                        setStatusFilter(status);
+                        if (status === 'all') setSearchParams({});
+                        else setSearchParams({ status });
+                      }}
                       className="capitalize"
                     >
                       {status}
@@ -169,9 +183,9 @@ export default function GuardsPage() {
                           <Button variant="ghost" size="icon">
                             <Phone className="w-4 h-4" />
                           </Button>
-                          <Button variant="outline" size="sm">
-                            View
-                          </Button>
+                          <Link to={`/guards/${guard.id}`}>
+                            <Button variant="outline" size="sm">View</Button>
+                          </Link>
                         </div>
                       </td>
                     </tr>

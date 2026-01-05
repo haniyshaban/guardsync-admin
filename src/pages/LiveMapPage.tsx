@@ -17,14 +17,17 @@ import {
   Maximize2
 } from 'lucide-react';
 import { Guard, Site } from '@/types';
+import { useSearchParams, Link } from 'react-router-dom';
 
 export default function LiveMapPage() {
   const [guards] = useState(mockGuards);
   const [sites] = useState(mockSites);
   const [showSites, setShowSites] = useState(true);
-  const [showGeofences, setShowGeofences] = useState(true);
+  const [showGuards, setShowGuards] = useState(true);
   const [selectedGuard, setSelectedGuard] = useState<Guard | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusSiteId = searchParams.get('site');
 
   const onlineGuards = guards.filter(g => g.status === 'online').length;
   const idleGuards = guards.filter(g => g.status === 'idle').length;
@@ -76,11 +79,11 @@ export default function LiveMapPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Switch 
-                  id="show-geofences" 
-                  checked={showGeofences}
-                  onCheckedChange={setShowGeofences}
+                  id="show-guards" 
+                  checked={showGuards}
+                  onCheckedChange={setShowGuards}
                 />
-                <Label htmlFor="show-geofences" className="text-sm">Geofences</Label>
+                <Label htmlFor="show-guards" className="text-sm">Guards</Label>
               </div>
             </div>
 
@@ -99,10 +102,12 @@ export default function LiveMapPage() {
                 guards={guards}
                 sites={sites}
                 showSites={showSites}
-                showGeofences={showGeofences}
+                showGeofences={showSites} // Sites toggle controls both icons and borders
+                showGuards={showGuards}
                 selectedGuardId={selectedGuard?.id}
                 onGuardClick={setSelectedGuard}
                 onSiteClick={setSelectedSite}
+                focusSiteId={focusSiteId || undefined}
               />
             </div>
           </div>
@@ -121,7 +126,16 @@ export default function LiveMapPage() {
                 {sites.map(site => (
                   <div 
                     key={site.id}
-                    onClick={() => setSelectedSite(site)}
+                    onClick={() => {
+                      // toggle expand/collapse
+                      if (selectedSite?.id === site.id) {
+                        setSelectedSite(null);
+                        try { setSearchParams({}); } catch (e) {}
+                      } else {
+                        setSelectedSite(site);
+                        try { setSearchParams({ site: site.id }); } catch (e) {}
+                      }
+                    }}
                     className={`p-3 rounded-lg border cursor-pointer transition-all ${
                       selectedSite?.id === site.id 
                         ? 'bg-primary/10 border-primary/30' 
@@ -141,6 +155,30 @@ export default function LiveMapPage() {
                         {site.assignedGuards.length} guards assigned
                       </span>
                     </div>
+
+                    {selectedSite?.id === site.id && (
+                      <div className="mt-3 border-t pt-3 space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Status</span>
+                          <Badge variant={site.isActive ? 'success' : 'secondary'}>
+                            {site.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Geofence</span>
+                          <span className="font-mono">{site.geofenceRadius || '—'}m</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Guards</span>
+                          <span>{site.assignedGuards.length}</span>
+                        </div>
+                        <div className="pt-2">
+                          <Link to={`/manage-site/${site.id}`} onClick={(e) => e.stopPropagation()}>
+                            <Button variant="outline" className="w-full" size="sm">Manage Site</Button>
+                          </Link>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </CardContent>
@@ -185,42 +223,7 @@ export default function LiveMapPage() {
                 </CardContent>
               </Card>
             )}
-
-            {selectedSite && !selectedGuard && (
-              <Card variant="glow">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-primary" />
-                    Selected Site
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div>
-                    <p className="font-medium">{selectedSite.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{selectedSite.address}</p>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Status</span>
-                      <Badge variant={selectedSite.isActive ? 'success' : 'secondary'}>
-                        {selectedSite.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Geofence</span>
-                      <span className="font-mono">{selectedSite.geofenceRadius}m</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Guards</span>
-                      <span>{selectedSite.assignedGuards.length}</span>
-                    </div>
-                  </div>
-                  <Button variant="outline" className="w-full" size="sm">
-                    Manage Site
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            
           </div>
         </div>
       </div>

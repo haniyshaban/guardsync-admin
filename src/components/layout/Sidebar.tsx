@@ -7,6 +7,7 @@ import {
   Building2, 
   FileText, 
   Settings,
+  HelpCircle,
   Shield,
   Bell,
   ChevronLeft,
@@ -22,6 +23,7 @@ const navItems = [
   { path: '/sites', icon: Building2, label: 'Sites' },
   { path: '/reports', icon: FileText, label: 'Reports' },
   { path: '/alerts', icon: Bell, label: 'Alerts' },
+  { path: '/support', icon: HelpCircle, label: 'Support' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
 

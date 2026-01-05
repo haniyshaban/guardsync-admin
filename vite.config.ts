@@ -13,7 +13,10 @@ export default defineConfig(({ mode }) => ({
   // Avoid Vite pre-bundling a stale optimized react-leaflet build that can
   // incorrectly render Context as a Consumer (causing: "render2 is not a function").
   optimizeDeps: {
-    exclude: ["react-leaflet", "@react-leaflet/core", "leaflet"],
+    // Ensure Leaflet is pre-bundled so ESM named-exports (like DomUtil) are available.
+    // Keep react-leaflet/core pre-bundled as well to avoid runtime mismatch.
+    exclude: ["react-leaflet"],
+    include: ["react", "react-dom", "react/jsx-runtime", "leaflet", "@react-leaflet/core"],
   },
   resolve: {
     alias: {

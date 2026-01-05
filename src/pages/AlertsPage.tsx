@@ -10,6 +10,7 @@ import {
   Clock
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { Link } from 'react-router-dom';
 
 export default function AlertsPage() {
   const alertGuards = mockGuards.filter(g => g.status === 'alert');
@@ -68,6 +69,9 @@ export default function AlertsPage() {
                     <Button variant="outline" size="sm">
                       Contact
                     </Button>
+                    <Link to={`/guards/${guard.id}`}>
+                      <Button variant="ghost" size="sm">View Guard Details</Button>
+                    </Link>
                     <Button variant="success" size="sm">
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Resolve

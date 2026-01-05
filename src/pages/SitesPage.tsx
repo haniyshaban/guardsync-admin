@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { mockSites, mockGuards } from '@/data/mockData';
 import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
   Building2, 
@@ -16,10 +17,9 @@ import {
   Search, 
   MapPin,
   Users,
-  Edit,
-  Trash2,
   Settings
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export default function SitesPage() {
   const [sites, setSites] = useState(mockSites);
@@ -179,6 +179,15 @@ export default function SitesPage() {
                       {polygonPoints.map((p, i) => (
                         <Marker key={i} position={[p.lat, p.lng]} />
                       ))}
+                      {/* show guards assigned to this site as small dots */}
+                      {mockGuards.filter(g => g.siteId === activeSite?.id && g.location).map(g => (
+                        <Marker key={g.id} position={[g.location!.lat, g.location!.lng]} icon={L.divIcon({
+                          className: 'small-guard-marker',
+                          html: `<div style="width:10px;height:10px;border-radius:50%;background:${g.status==='online'? '#22c55e': g.status==='idle'? '#f59e0b': g.status==='alert'? '#dc2626':'#ef4444'};border:2px solid white"></div>`,
+                          iconSize: [12,12],
+                          iconAnchor: [6,6]
+                        })} />
+                      ))}
                       <MapClickHandler onClick={(lat,lng) => setPolygonPoints(prev => [...prev, {lat,lng}])} />
                     </MapContainer>
                   </div>
@@ -320,24 +329,19 @@ export default function SitesPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => {
-                    setActiveSite(site);
-                    setGeofenceMode(site.geofenceType || 'radius');
-                    setRadiusValue(site.geofenceRadius || 100);
-                    setPolygonText(site.geofencePolygon ? JSON.stringify(site.geofencePolygon, null, 2) : '');
-                    setPolygonPoints(site.geofencePolygon ? site.geofencePolygon.map((p: any) => ({ lat: Number(p.lat), lng: Number(p.lng) })) : []);
-                    setIsConfigOpen(true);
-                  }}>
-                    <Settings className="w-4 h-4 mr-1" />
-                    Configure
-                  </Button>
-                  <Button variant="ghost" size="icon">
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <Link to={`/live-map?site=${site.id}`}>
+                    <Button variant="default" size="sm" className="h-10 w-36 flex items-center justify-center">
+                      <MapPin className="w-4 h-4 mr-1" />
+                      View Site
+                    </Button>
+                  </Link>
+                  <Link to={`/manage-site/${site.id}`}>
+                    <Button variant="outline" size="sm" className="h-10 w-36 flex items-center justify-center">
+                      <Settings className="w-4 h-4 mr-1" />
+                      Manage Site
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>

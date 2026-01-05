@@ -62,6 +62,7 @@ const Index = () => {
             value={stats.totalGuards}
             icon={Users}
             variant="info"
+            to="/guards"
           />
           <StatCard
             title="Active Now"
@@ -69,29 +70,34 @@ const Index = () => {
             icon={UserCheck}
             variant="success"
             trend={{ value: 12, isPositive: true }}
+            to="/guards?status=online"
           />
           <StatCard
             title="Offline"
             value={stats.offlineGuards}
             icon={UserX}
             variant="warning"
+            to="/guards?status=offline"
           />
           <StatCard
             title="Alerts"
             value={stats.alertGuards}
             icon={AlertTriangle}
             variant="destructive"
+            to="/alerts"
           />
           <StatCard
             title="Total Sites"
             value={stats.totalSites}
             icon={Building2}
+            to="/sites"
           />
           <StatCard
             title="Active Sites"
             value={stats.activeSites}
             icon={MapPin}
             variant="success"
+            to="/sites"
           />
         </div>
 
@@ -160,17 +166,18 @@ const Index = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {recentAlerts.map(guard => (
-                  <div 
-                    key={guard.id}
-                    className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20"
-                  >
-                    <div className="status-dot status-alert" />
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{guard.name}</p>
-                      <p className="text-xs text-muted-foreground">{guard.employeeId}</p>
+                  <Link to="/alerts" key={guard.id} className="block">
+                    <div 
+                      className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/20 hover:bg-destructive/20 transition-colors"
+                    >
+                      <div className="status-dot status-alert" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{guard.name}</p>
+                        <p className="text-xs text-muted-foreground">{guard.employeeId}</p>
+                      </div>
+                      <Badge variant="alert">Missed Check-in</Badge>
                     </div>
-                    <Badge variant="alert">Missed Check-in</Badge>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </CardContent>

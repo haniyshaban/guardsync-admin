@@ -5,13 +5,77 @@ import { DayPicker } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
+// Custom caption with month/year dropdowns to ensure users can quickly jump
+function CaptionDropdown({ displayMonth, onMonthChange, locale }: any) {
+  const months = Array.from({ length: 12 }).map((_, i) =>
+    new Date(2000, i, 1).toLocaleString(locale || undefined, { month: 'long' })
+  );
+
+  const year = displayMonth.getFullYear();
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 16 }).map((_, i) => currentYear - 10 + i);
+
+  return (
+    <div className="flex items-center gap-2 justify-center p-2">
+      <select
+        value={displayMonth.getMonth()}
+        onChange={(e) => {
+          const m = Number(e.target.value);
+          const d = new Date(displayMonth);
+          d.setMonth(m);
+          onMonthChange?.(d);
+        }}
+        className="px-2 py-1 rounded border bg-popover text-popover-foreground"
+      >
+        {months.map((m, i) => (
+          <option key={m} value={i}>{m}</option>
+        ))}
+      </select>
+
+      <select
+        value={year}
+        onChange={(e) => {
+          const y = Number(e.target.value);
+          const d = new Date(displayMonth);
+          d.setFullYear(y);
+          onMonthChange?.(d);
+        }}
+        className="px-2 py-1 rounded border bg-popover text-popover-foreground"
+      >
+        {years.map(y => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
+  const initial = (props as any).month ?? new Date();
+  const [displayMonth, setDisplayMonth] = React.useState<Date>(initial instanceof Date ? initial : new Date(initial));
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      month={displayMonth}
+      onMonthChange={(d) => d && setDisplayMonth(d)}
       className={cn("p-3", className)}
+      components={{
+        Caption: (cProps: any) => (
+          <CaptionDropdown
+            {...cProps}
+            displayMonth={displayMonth}
+            onMonthChange={(d: Date) => {
+              setDisplayMonth(d);
+              cProps.onMonthChange?.(d);
+            }}
+          />
+        ),
+        IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
+        IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+      }}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -40,10 +104,6 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
-      }}
-      components={{
-        IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
       }}
       {...props}
     />

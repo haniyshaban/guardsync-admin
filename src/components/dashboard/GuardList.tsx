@@ -1,6 +1,8 @@
 import { Guard } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -74,14 +76,21 @@ export function GuardList({
               </p>
             </div>
 
-            {/* Time */}
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">
-                {formatDistanceToNow(guard.lastSeen, { addSuffix: true })}
-              </p>
-              {guard.clockedIn && (
-                <p className="text-xs text-success">Clocked In</p>
-              )}
+            {/* Time + actions */}
+            <div className="text-right flex flex-col items-end gap-2">
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {formatDistanceToNow(guard.lastSeen, { addSuffix: true })}
+                </p>
+                {guard.clockedIn && (
+                  <p className="text-xs text-success">Clocked In</p>
+                )}
+              </div>
+              <div>
+                <Link to={`/guards/${guard.id}`} onClick={(e) => e.stopPropagation()}>
+                  <Button size="sm" variant="outline">View</Button>
+                </Link>
+              </div>
             </div>
           </div>
         ))}
