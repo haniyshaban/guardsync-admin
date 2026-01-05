@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  // Avoid Vite pre-bundling a stale optimized react-leaflet build that can
+  // incorrectly render Context as a Consumer (causing: "render2 is not a function").
+  optimizeDeps: {
+    exclude: ["react-leaflet", "@react-leaflet/core", "leaflet"],
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
