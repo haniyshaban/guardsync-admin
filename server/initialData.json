@@ -1,0 +1,59 @@
+{
+  "sites": [
+    {
+      "id": "site-1",
+      "name": "Whitefield Tech Park",
+      "address": "Whitefield, Bangalore",
+      "location": { "lat": 12.9698, "lng": 77.7491 },
+      "geofenceRadius": 100,
+      "geofenceType": "radius",
+      "assignedGuards": [],
+      "isActive": true,
+      "createdAt": "2024-01-15T00:00:00.000Z"
+    },
+    {
+      "id": "site-2",
+      "name": "Koramangala Mall Complex",
+      "address": "Koramangala, Bangalore",
+      "location": { "lat": 12.9350, "lng": 77.6190 },
+      "geofenceRadius": 150,
+      "geofenceType": "radius",
+      "assignedGuards": [],
+      "isActive": true,
+      "createdAt": "2024-02-01T00:00:00.000Z"
+    },
+    {
+      "id": "site-3",
+      "name": "MG Road Business Center",
+      "address": "MG Road, Bangalore",
+      "location": { "lat": 12.9759, "lng": 77.6050 },
+      "geofenceRadius": 100,
+      "geofenceType": "radius",
+      "assignedGuards": [],
+      "isActive": true,
+      "createdAt": "2024-02-10T00:00:00.000Z"
+    },
+    {
+      "id": "site-4",
+      "name": "Electronic City Park",
+      "address": "Electronic City, Bangalore",
+      "location": { "lat": 12.8390, "lng": 77.6770 },
+      "geofenceRadius": 120,
+      "geofenceType": "radius",
+      "assignedGuards": [],
+      "isActive": true,
+      "createdAt": "2024-03-01T00:00:00.000Z"
+    },
+    {
+      "id": "site-5",
+      "name": "Jayanagar Residences",
+      "address": "Jayanagar, Bangalore",
+      "location": { "lat": 12.9250, "lng": 77.5838 },
+      "geofenceRadius": 200,
+      "geofenceType": "radius",
+      "assignedGuards": [],
+      "isActive": false,
+      "createdAt": "2024-03-15T00:00:00.000Z"
+    }
+  ]
+}

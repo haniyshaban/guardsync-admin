@@ -87,11 +87,56 @@ export default function SitesPage() {
               </p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <input id="site-import" type="file" accept="application/json" onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                try {
+                  const parsed = JSON.parse(String(reader.result || ''));
+                  if (Array.isArray(parsed)) {
+                    setSites(parsed as any);
+                    localStorage.setItem('gw_sites', JSON.stringify(parsed));
+                    // update mockSites in-memory
+                    try { mockSites.length = 0; (parsed as any).forEach((p: any) => mockSites.push(p)); } catch(e){}
+                    alert('Imported sites successfully');
+                  } else if (parsed && Array.isArray(parsed.sites)) {
+                    setSites(parsed.sites as any);
+                    localStorage.setItem('gw_sites', JSON.stringify(parsed.sites));
+                    try { mockSites.length = 0; (parsed.sites as any).forEach((p: any) => mockSites.push(p)); } catch(e){}
+                    alert('Imported sites successfully');
+                  } else {
+                    alert('Invalid JSON format');
+                  }
+                } catch (err) {
+                  alert('Failed to parse JSON');
+                }
+              };
+              reader.readAsText(f);
+              // reset input
+              (e.target as HTMLInputElement).value = '';
+            }} style={{ display: 'none' }} />
 
-          <Button variant="glow">
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Site
-          </Button>
+            <Button variant="outline" onClick={() => {
+              const input = document.getElementById('site-import') as HTMLInputElement | null;
+              input?.click();
+            }}>Import</Button>
+
+            <Button variant="glow" onClick={() => {
+              const data = JSON.stringify(sites, null, 2);
+              const blob = new Blob([data], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'guardwise-sites.json';
+              a.click();
+              URL.revokeObjectURL(url);
+            }}>
+              <Plus className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
         </div>
 
         {/* Configure Geofence Dialog */}
