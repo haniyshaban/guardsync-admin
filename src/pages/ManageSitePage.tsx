@@ -8,7 +8,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polygon, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -22,7 +22,14 @@ export default function ManageSitePage() {
   const [name, setName] = useState(site?.name || '');
   const [isActive, setIsActive] = useState<boolean>(!!site?.isActive);
   const [assignedGuardIds, setAssignedGuardIds] = useState<string[]>(site?.assignedGuards?.slice() || []);
+  const [assignedGuardShifts, setAssignedGuardShifts] = useState<{ guardId: string; shiftId: string }[]>(site?.assignedGuardShifts?.slice() || []);
   const [selectedAddGuard, setSelectedAddGuard] = useState<string>('');
+  const [selectedAddGuardShift, setSelectedAddGuardShift] = useState<string>('');
+  const defaultShifts = [
+    { id: 'shift-day', label: 'Day', startTime: '08:00', endTime: '20:00', daysOfWeek: [1,2,3,4,5,6,7] },
+    { id: 'shift-night', label: 'Night', startTime: '20:00', endTime: '08:00', daysOfWeek: [1,2,3,4,5,6,7] }
+  ];
+  const [siteShifts, setSiteShifts] = useState<any[]>(site?.shifts?.slice() || defaultShifts);
   const [geofenceMode, setGeofenceMode] = useState<'radius' | 'polygon'>(site?.geofenceType || 'radius');
   const [radiusValue, setRadiusValue] = useState<number>(site?.geofenceRadius || 100);
   const [polygonText, setPolygonText] = useState<string>(site?.geofencePolygon ? JSON.stringify(site.geofencePolygon, null, 2) : '');
@@ -34,6 +41,8 @@ export default function ManageSitePage() {
     setName(initialSite.name);
     setIsActive(!!initialSite.isActive);
     setAssignedGuardIds(initialSite.assignedGuards?.slice() || []);
+    setAssignedGuardShifts(initialSite.assignedGuardShifts?.slice() || []);
+    setSiteShifts(initialSite.shifts?.slice() || defaultShifts);
     setGeofenceMode(initialSite.geofenceType || 'radius');
     setRadiusValue(initialSite.geofenceRadius || 100);
     setPolygonText(initialSite.geofencePolygon ? JSON.stringify(initialSite.geofencePolygon, null, 2) : '');
@@ -93,17 +102,21 @@ export default function ManageSitePage() {
       }
 
       if (idx >= 0) {
-        mockSites[idx] = { ...mockSites[idx], name, isActive, assignedGuards: assignedGuardIds, ...updatedGeofence };
+        mockSites[idx] = { ...mockSites[idx], name, isActive, assignedGuards: assignedGuardIds, shifts: siteShifts, assignedGuardShifts: assignedGuardShifts, ...updatedGeofence };
       } else {
-        mockSites.push({ ...site, name, isActive, assignedGuards: assignedGuardIds, ...updatedGeofence });
+        mockSites.push({ ...site, name, isActive, assignedGuards: assignedGuardIds, shifts: siteShifts, assignedGuardShifts: assignedGuardShifts, ...updatedGeofence });
       }
 
-      // update mockGuards assignments in-memory
+      // update mockGuards assignments and shift ids in-memory
       mockGuards.forEach(g => {
-        if (assignedGuardIds.includes(g.id)) {
+        const assigned = assignedGuardIds.includes(g.id);
+        if (assigned) {
           g.siteId = site.id;
-        } else if (g.siteId === site.id && !assignedGuardIds.includes(g.id)) {
+          const mapping = assignedGuardShifts.find(a => a.guardId === g.id);
+          if (mapping) g.currentShiftId = mapping.shiftId;
+        } else if (g.siteId === site.id && !assigned) {
           g.siteId = null as any;
+          g.currentShiftId = undefined;
         }
       });
 
@@ -114,8 +127,11 @@ export default function ManageSitePage() {
         // ignore
       }
 
+      // refresh local `site` state so UI reflects saved values while staying on page
+      const refreshed = mockSites.find(ms => ms.id === site.id);
+      if (refreshed) setSite(refreshed);
+
       alert('Site saved');
-      navigate('/sites');
     } catch (err) {
       alert('Failed to save site');
     }
@@ -123,12 +139,29 @@ export default function ManageSitePage() {
 
   function removeGuard(guardId: string) {
     setAssignedGuardIds(prev => prev.filter(id => id !== guardId));
+    setAssignedGuardShifts(prev => prev.filter(p => p.guardId !== guardId));
+    const g = mockGuards.find(x => x.id === guardId);
+    if (g && g.siteId === site.id) {
+      g.siteId = null as any;
+      g.currentShiftId = undefined;
+    }
   }
 
   function addGuard() {
     if (!selectedAddGuard) return;
+    if (!selectedAddGuardShift) {
+      alert('Please select a shift when assigning a guard.');
+      return;
+    }
     setAssignedGuardIds(prev => [...prev, selectedAddGuard]);
+    setAssignedGuardShifts(prev => [...prev, { guardId: selectedAddGuard, shiftId: selectedAddGuardShift }]);
+    const g = mockGuards.find(x => x.id === selectedAddGuard);
+    if (g) {
+      g.siteId = site.id;
+      g.currentShiftId = selectedAddGuardShift;
+    }
     setSelectedAddGuard('');
+    setSelectedAddGuardShift('');
   }
 
   function deleteSite() {
@@ -191,6 +224,11 @@ export default function ManageSitePage() {
                           <div>
                             <div className="font-medium">{g.name}</div>
                             <div className="text-xs text-muted-foreground">{g.employeeId} • {g.phone}</div>
+                            <div className="text-xs text-muted-foreground">Shift: {(() => {
+                              const mapping = assignedGuardShifts.find(a => a.guardId === g.id);
+                              const s = mapping ? siteShifts.find(ss => ss.id === mapping.shiftId) : null;
+                              return s ? (s.label || `${s.startTime}-${s.endTime}`) : '—';
+                            })()}</div>
                           </div>
                           <div>
                             <Button variant="ghost" size="sm" onClick={() => removeGuard(g.id)}>Remove</Button>
@@ -203,10 +241,16 @@ export default function ManageSitePage() {
                         <select className="flex-1 p-2 rounded border bg-white text-foreground text-sm" style={{color: '#0f172a'}} value={selectedAddGuard} onChange={(e) => setSelectedAddGuard(e.target.value)}>
                         <option value="">Select guard to add</option>
                         {availableGuards.map(g => (
-                          <option key={g.id} value={g.id}>{g.name} — {g.employeeId}</option>
+                          <option key={g.id} value={g.id} style={{ color: '#0f172a', background: '#ffffff' }}>{g.name} — {g.employeeId}</option>
                         ))}
                       </select>
-                      <Button onClick={addGuard} disabled={!selectedAddGuard}>Add</Button>
+                      <select className="w-48 p-2 rounded border bg-white text-foreground text-sm" value={selectedAddGuardShift} onChange={(e) => setSelectedAddGuardShift(e.target.value)}>
+                        <option value="">Select shift</option>
+                        {siteShifts.map(s => (
+                          <option key={s.id} value={s.id} style={{ color: '#0f172a', background: '#ffffff' }}>{s.label || `${s.startTime}-${s.endTime}`}</option>
+                        ))}
+                      </select>
+                      <Button onClick={addGuard} disabled={!selectedAddGuard || !selectedAddGuardShift}>Add</Button>
                     </div>
                   </div>
 
@@ -238,7 +282,24 @@ export default function ManageSitePage() {
                   {geofenceMode === 'radius' && (
                     <div>
                       <div className="text-sm text-muted-foreground mb-2">Radius (meters)</div>
-                      <Input value={radiusValue} onChange={(e) => setRadiusValue(Number(e.target.value))} type="number" />
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="range"
+                          min={10}
+                          max={2000}
+                          value={radiusValue}
+                          onChange={(e) => setRadiusValue(Number(e.target.value))}
+                          className="w-full"
+                        />
+                        <div className="w-20 text-right font-mono">{radiusValue} m</div>
+                      </div>
+
+                      <div className="mt-3 w-full h-40 rounded-md overflow-hidden border">
+                        <MapContainer center={[site.location.lat || 12.97, site.location.lng || 77.59]} zoom={15} className="w-full h-full">
+                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                          <Circle center={[site.location.lat, site.location.lng]} radius={Number(radiusValue)} pathOptions={{ color: 'hsl(192, 95%, 50%)', fillOpacity: 0.08 }} />
+                        </MapContainer>
+                      </div>
                     </div>
                   )}
 

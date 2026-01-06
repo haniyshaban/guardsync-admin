@@ -7,6 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { mockGuards, mockSites } from '@/data/mockData';
 import { useState, useEffect, useRef } from 'react';
+import { toast as sonnerToast } from '@/components/ui/sonner';
+import SendMessageDialog from '@/components/ui/SendMessageDialog';
 import { 
   Map, 
   Layers, 
@@ -22,12 +24,22 @@ import { Guard, Site } from '@/types';
 import { useSearchParams, Link } from 'react-router-dom';
 
 export default function LiveMapPage() {
-  const [guards] = useState(mockGuards);
+  const [guards, setGuards] = useState(mockGuards);
   const [sites] = useState(mockSites);
+
+  useEffect(() => {
+    const onUpdate = () => setGuards([...mockGuards]);
+    window.addEventListener('guards-updated', onUpdate as EventListener);
+    return () => window.removeEventListener('guards-updated', onUpdate as EventListener);
+  }, []);
   const [showSites, setShowSites] = useState(true);
   const [showGuards, setShowGuards] = useState(true);
+  const [showTrails, setShowTrails] = useState(false);
   const [selectedGuard, setSelectedGuard] = useState<Guard | null>(null);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
+  const [playbackTrigger, setPlaybackTrigger] = useState(0);
+  const [playbackGuardId, setPlaybackGuardId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const focusSiteId = searchParams.get('site');
 
@@ -101,6 +113,14 @@ export default function LiveMapPage() {
                 />
                 <Label htmlFor="show-guards" className="text-sm">Guards</Label>
               </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="show-trails"
+                    checked={showTrails}
+                    onCheckedChange={setShowTrails}
+                  />
+                  <Label htmlFor="show-trails" className="text-sm">Show Movement Trails</Label>
+                </div>
             </div>
 
             <Button variant="outline" size="icon">
@@ -124,6 +144,9 @@ export default function LiveMapPage() {
                 onGuardClick={setSelectedGuard}
                 onSiteClick={setSelectedSite}
                 focusSiteId={focusSiteId || undefined}
+                showTrails={showTrails}
+                playbackGuardId={playbackGuardId}
+                playbackTrigger={playbackTrigger}
               />
             </div>
           </div>
@@ -272,13 +295,13 @@ export default function LiveMapPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-lg font-semibold">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-lg font-semibold flex-shrink-0">
                       {selectedGuard.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </div>
-                    <div>
-                      <p className="font-medium">{selectedGuard.name}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{selectedGuard.employeeId}</p>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{selectedGuard.name}</p>
+                      <p className="text-xs text-muted-foreground font-mono truncate">{selectedGuard.employeeId}</p>
                     </div>
                   </div>
                   <div className="space-y-2 text-sm">
@@ -295,12 +318,23 @@ export default function LiveMapPage() {
                       <span>{selectedGuard.clockedIn ? 'Yes' : 'No'}</span>
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full" size="sm">
-                    View Full Profile
-                  </Button>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button size="sm" variant="ghost" onClick={() => sonnerToast.success(`Nudge sent to ${selectedGuard.name}`)}>Ping</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setMessageDialogOpen(true)}>Message</Button>
+                      <Button size="sm" variant="ghost" onClick={() => { setPlaybackGuardId(selectedGuard.id); setPlaybackTrigger(t => t + 1); }}>Playback</Button>
+                    </div>
+                    <div className="sm:ml-auto w-full sm:w-auto">
+                      <Button variant="outline" className="w-full sm:w-auto" size="sm">View Full Profile</Button>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             )}
+            <SendMessageDialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen} guard={selectedGuard || undefined} onSend={(g, msg) => {
+              sonnerToast(`Message sent to ${g?.name}: ${msg || '—'}`);
+              console.log('Send message to', g?.id, msg);
+            }} />
             
           </div>
         </div>

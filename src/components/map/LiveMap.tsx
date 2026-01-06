@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polygon, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Guard, Site } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { toast as sonnerToast } from '@/components/ui/sonner';
+import SendMessageDialog from '@/components/ui/SendMessageDialog';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -24,10 +26,11 @@ const createGuardIcon = (status: Guard['status']) => {
     offline: '#ef4444',
     idle: '#f59e0b',
     alert: '#dc2626',
+    panic: '#ff1744',
   };
 
-  const color = colors[status];
-  const pulseClass = status === 'alert' ? 'animate-ping-slow' : '';
+  const color = colors[status] || '#ef4444';
+  const pulseClass = status === 'alert' ? 'animate-ping-slow' : (status === 'panic' ? 'marker-panic' : '');
 
   return L.divIcon({
     className: 'custom-guard-marker',
@@ -247,6 +250,9 @@ interface LiveMapProps {
   onGuardClick?: (guard: Guard) => void;
   onSiteClick?: (site: Site) => void;
   focusSiteId?: string;
+  showTrails?: boolean;
+  playbackGuardId?: string | null;
+  playbackTrigger?: number;
 }
 
 export function LiveMap({
@@ -259,7 +265,15 @@ export function LiveMap({
   onGuardClick,
   onSiteClick,
   focusSiteId,
+  showTrails = false,
+  playbackGuardId,
+  playbackTrigger,
 }: LiveMapProps) {
+  const [activePopupGuardId, setActivePopupGuardId] = useState<string | null>(null);
+  const [localPlaybackTrigger, setLocalPlaybackTrigger] = useState(0);
+  const [localPlaybackGuardId, setLocalPlaybackGuardId] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogGuard, setDialogGuard] = useState<Guard | null>(null);
   // Default center on Delhi NCR region
   const defaultCenter: [number, number] = [28.6139, 77.2090];
   const defaultZoom = 10;
@@ -326,6 +340,7 @@ export function LiveMap({
       case 'offline': return 'offline';
       case 'idle': return 'idle';
       case 'alert': return 'alert';
+      case 'panic': return 'alert';
       default: return 'secondary';
     }
   };
@@ -355,6 +370,70 @@ export function LiveMap({
   };
 
   const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+  // Generate a mock trail (breadcrumb) of up to `count` coordinates for a guard.
+  // Prefer `locationHistory` when present; otherwise synthesize around current location.
+  const generateMockTrail = (guard: Guard, count = 10) => {
+    if (guard.locationHistory && guard.locationHistory.length > 0) {
+      const hist = guard.locationHistory.slice(-count).map(h => [h.lat, h.lng] as [number, number]);
+      return hist;
+    }
+    if (!guard.location) return [] as [number, number][];
+    const pts: [number, number][] = [];
+    const baseLat = guard.location.lat;
+    const baseLng = guard.location.lng;
+    for (let i = count - 1; i >= 0; i--) {
+      const factor = (i + 1) / count; // older points further from current
+      const jitterLat = (Math.random() - 0.5) * 0.001 * factor;
+      const jitterLng = (Math.random() - 0.5) * 0.001 * factor;
+      pts.push([baseLat - jitterLat, baseLng - jitterLng]);
+    }
+    return pts;
+  };
+
+  // Playback controller component - animates a marker along given positions when trigger changes
+  function PlaybackController({ positions, trigger }: { positions: [number, number][]; trigger?: number }) {
+    const map = useMap();
+    const markerRef = useRef<L.Marker | null>(null);
+    useEffect(() => {
+      if (!positions || positions.length === 0) return;
+      if (trigger === undefined) return;
+
+      // remove existing marker if any
+      if (markerRef.current) {
+        try { map.removeLayer(markerRef.current); } catch (e) {}
+        markerRef.current = null;
+      }
+
+      const movingMarker = L.marker(positions[0], { zIndexOffset: 10000 });
+      movingMarker.addTo(map);
+      markerRef.current = movingMarker;
+
+      let idx = 0;
+      const step = () => {
+        idx += 1;
+        if (idx >= positions.length) {
+          // finish
+          setTimeout(() => {
+            try { map.removeLayer(movingMarker); } catch (e) {}
+          }, 500);
+          return;
+        }
+        movingMarker.setLatLng(positions[idx]);
+        setTimeout(step, 400);
+      };
+
+      setTimeout(step, 400);
+
+      return () => {
+        try { map.removeLayer(movingMarker); } catch (e) {}
+        markerRef.current = null;
+      };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trigger]);
+
+    return null;
+  }
 
   return (
     <div className="relative w-full h-full rounded-lg overflow-hidden border border-border">
@@ -450,24 +529,38 @@ export function LiveMap({
         ))}
 
         {/* Render guard markers if enabled */}
-        {showGuards && guards.map((guard) => {
+          {showGuards && guards.map((guard) => {
           if (!guard.location) return null;
           const insideAny = sites.some(site => isPointInsideSiteGeofence(guard.location!.lat, guard.location!.lng, site));
-          const effectiveStatus: Guard['status'] = guard.status === 'alert' ? 'alert' : (insideAny ? 'online' : guard.status);
+          const effectiveStatus: Guard['status'] = guard.status === 'panic' ? 'panic' : (guard.status === 'alert' ? 'alert' : (insideAny ? 'online' : guard.status));
           return (
             <Marker
               key={guard.id}
               position={[guard.location.lat, guard.location.lng]}
               icon={createGuardIcon(effectiveStatus)}
-              eventHandlers={{ click: () => onGuardClick?.(guard) }}
+              eventHandlers={{
+                click: () => {
+                  onGuardClick?.(guard);
+                  setActivePopupGuardId(guard.id);
+                },
+                popupclose: () => {
+                  setActivePopupGuardId(null);
+                }
+              }}
             >
               <Popup>
-                <div className="p-2 min-w-[180px]">
+                <div className="p-2 min-w-[200px] relative">
+                  <div className="absolute right-2 top-2">
+                    <Link to={`/guards/${guard.id}`} onClick={(e) => e.stopPropagation()}>
+                      <Button size="sm" variant="outline">View</Button>
+                    </Link>
+                  </div>
                   <div className="flex items-center gap-2">
                     <div className={`status-dot status-${guard.status}`} />
                     <h3 className="font-semibold text-foreground" style={{ color: '#0f172a' }}>{guard.name}</h3>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">ID: {guard.employeeId}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Phone: <a href={`tel:${guard.phone}`} className="underline">{guard.phone}</a></p>
                   <div className="mt-2">
                     <Badge variant={getStatusVariant(guard.status)}>
                       {guard.status.charAt(0).toUpperCase() + guard.status.slice(1)}
@@ -477,17 +570,41 @@ export function LiveMap({
                   {guard.clockedIn && guard.clockInTime && (
                     <p className="text-xs text-muted-foreground">Clocked in: {formatDistanceToNow(guard.clockInTime, { addSuffix: true })}</p>
                   )}
-                  <div className="mt-3">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to={`/guards/${guard.id}`}>View Guard</Link>
-                    </Button>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); sonnerToast.success(`Nudge sent to ${guard.name}`); console.log('Ping', guard.id); }}>Ping</Button>
+                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setDialogGuard(guard); setDialogOpen(true); }}>Message</Button>
+                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setLocalPlaybackGuardId(guard.id); setLocalPlaybackTrigger(t => t + 1); }}>Playback</Button>
                   </div>
                 </div>
               </Popup>
             </Marker>
           );
         })}
+
+        {/* Render movement trail for selected guard if enabled */}
+        {showTrails && (() => {
+          const id = activePopupGuardId || selectedGuardId;
+          if (!id) return null;
+          const g = guards.find(x => x.id === id);
+          if (!g) return null;
+          const trail = generateMockTrail(g, 10);
+          return (
+            <>
+              <Polyline key={`trail-${g.id}`} positions={trail as any} pathOptions={{ color: 'hsl(192, 95%, 50%)', weight: 3, opacity: 0.6 }} />
+              {/* playback by either parent props or local playback controls */}
+              {((typeof playbackTrigger !== 'undefined' && playbackGuardId === g.id && playbackTrigger) || (localPlaybackGuardId === g.id && localPlaybackTrigger)) && (
+                <PlaybackController positions={trail} trigger={localPlaybackGuardId === g.id ? localPlaybackTrigger : playbackTrigger} />
+              )}
+            </>
+          );
+        })()}
         </MapContainer>
+
+        {/* Send message dialog used by marker popups */}
+        <SendMessageDialog open={dialogOpen} onOpenChange={setDialogOpen} guard={dialogGuard} onSend={(g, msg) => {
+          sonnerToast(`Message sent to ${g?.name}: ${msg || '—'}`);
+          console.log('Send message to', g?.id, msg);
+        }} />
 
       {/* Map legend */}
       <div className="absolute bottom-4 left-4 z-[1000] bg-card/95 backdrop-blur-sm rounded-lg border border-border p-3">
@@ -508,6 +625,10 @@ export function LiveMap({
           <div className="flex items-center gap-2">
             <div className="status-dot status-alert" />
             <span className="text-xs text-muted-foreground">Alert</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="status-dot status-panic" />
+            <span className="text-xs text-muted-foreground">Panic</span>
           </div>
         </div>
       </div>

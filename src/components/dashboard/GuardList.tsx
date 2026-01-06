@@ -1,10 +1,14 @@
 import { Guard } from '@/types';
+import { mockSites } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast as sonnerToast } from '@/components/ui/sonner';
+import SendMessageDialog from '@/components/ui/SendMessageDialog';
+import { useState } from 'react';
 
 interface GuardListProps {
   guards: Guard[];
@@ -19,6 +23,8 @@ export function GuardList({
   onGuardClick,
   selectedGuardId 
 }: GuardListProps) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogGuard, setDialogGuard] = useState<Guard | null>(null);
   const getStatusVariant = (status: Guard['status']): "online" | "offline" | "idle" | "alert" | "secondary" => {
     switch (status) {
       case 'online': return 'online';
@@ -74,6 +80,14 @@ export function GuardList({
               <p className="text-xs text-muted-foreground font-mono">
                 {guard.employeeId}
               </p>
+              <div className="text-xs text-muted-foreground">
+                {(() => {
+                  const site = mockSites.find(s => s.id === guard.siteId);
+                  if (!site || !(site as any).shifts) return null;
+                  const s = (site as any).shifts.find((ss: any) => ss.id === guard.currentShiftId);
+                  return s ? (s.label || `${s.startTime}-${s.endTime}`) : null;
+                })()}
+              </div>
             </div>
 
             {/* Time + actions */}
@@ -86,7 +100,15 @@ export function GuardList({
                   <p className="text-xs text-success">Clocked In</p>
                 )}
               </div>
-              <div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); sonnerToast.success(`Nudge sent to ${guard.name}`); }}>
+                  Ping
+                </Button>
+
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setDialogGuard(guard); setDialogOpen(true); }}>
+                  Message
+                </Button>
+
                 <Link to={`/guards/${guard.id}`} onClick={(e) => e.stopPropagation()}>
                   <Button size="sm" variant="outline">View</Button>
                 </Link>
@@ -95,6 +117,10 @@ export function GuardList({
           </div>
         ))}
       </div>
+      <SendMessageDialog open={dialogOpen} onOpenChange={setDialogOpen} guard={dialogGuard} onSend={(g, msg) => {
+        sonnerToast(`Message sent to ${g?.name}: ${msg || '—'}`);
+        console.log('Send message to', g?.id, msg);
+      }} />
     </ScrollArea>
   );
 }

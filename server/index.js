@@ -158,4 +158,4 @@ app.get('/api/guards', (req, res) => {
 });
 
 const port = process.env.PORT || 4000;
-app.listen(port, () => console.log(`GuardWise local API running at http://localhost:${port}/api`));
+app.listen(port, () => console.log(`GuardSync local API running at http://localhost:${port}/api`));

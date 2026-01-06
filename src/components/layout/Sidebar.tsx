@@ -15,7 +15,7 @@ import {
   , X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+import { useSidebar } from './SidebarContext';
 
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -30,21 +30,7 @@ const navItems = [
 
 export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose?: () => void }) {
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('gw_sidebar_collapsed') === 'true';
-    } catch (e) {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('gw_sidebar_collapsed', String(collapsed));
-    } catch (e) {
-      // ignore
-    }
-  }, [collapsed]);
+  const { collapsed, toggle } = useSidebar();
 
   return (
     <>
@@ -114,12 +100,7 @@ export function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => {
-            const next = !collapsed;
-            setCollapsed(next);
-            try { localStorage.setItem('gw_sidebar_collapsed', String(next)); } catch (e) {}
-            try { window.dispatchEvent(new CustomEvent('gw:sidebar:toggle', { detail: next })); } catch (e) {}
-          }}
+          onClick={() => toggle()}
           className="w-full justify-center"
         >
           {collapsed ? (

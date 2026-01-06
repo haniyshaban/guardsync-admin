@@ -1,4 +1,4 @@
-export type GuardStatus = 'online' | 'offline' | 'idle' | 'alert';
+export type GuardStatus = 'online' | 'offline' | 'idle' | 'alert' | 'panic';
 
 export interface Guard {
   id: string;
@@ -15,6 +15,11 @@ export interface Guard {
   avatar?: string;
   clockedIn: boolean;
   clockInTime?: Date;
+  // assigned/current shift id (optional)
+  currentShiftId?: string;
+  // Optional movement breadcrumb history (most recent last)
+  locationHistory?: { lat: number; lng: number; at?: Date }[];
+  lastPinged?: Date;
 }
 
 export interface Site {
@@ -29,8 +34,22 @@ export interface Site {
   geofenceType?: 'radius' | 'polygon';
   geofencePolygon?: { lat: number; lng: number }[];
   assignedGuards: string[];
+  // site-level shift definitions
+  shifts?: Shift[];
+  // mapping of assigned guard -> shift at this site
+  assignedGuardShifts?: { guardId: string; shiftId: string }[];
   isActive: boolean;
   createdAt: Date;
+}
+
+export interface Shift {
+  id: string;
+  label?: string;
+  // ISO-like local times in HH:mm format
+  startTime: string;
+  endTime: string;
+  // daysOfWeek: 0 (Sunday) - 6 (Saturday)
+  daysOfWeek: number[];
 }
 
 export interface AttendanceLog {

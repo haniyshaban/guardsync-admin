@@ -104,6 +104,95 @@ export const mockGuards: Guard[] = Array.from({ length: 50 }, (_, i) => {
   };
 });
 
+// Ensure at least one panic guard for demo purposes unless the demo panic
+// has been dismissed by the user (stored in localStorage). This prevents
+// the panic from reappearing immediately after dismissing it.
+try {
+  const dismissed = typeof window !== 'undefined' && window.localStorage.getItem('demo_panic_dismissed') === '1';
+  if (!dismissed && !mockGuards.some(g => g.status === 'panic')) {
+    const idx = 0;
+    mockGuards[idx].status = 'panic';
+    mockGuards[idx].clockedIn = true;
+    mockGuards[idx].clockInTime = new Date();
+    mockGuards[idx].lastSeen = new Date();
+  }
+} catch (e) {
+  // ignore storage errors in non-browser environments
+}
+
+// Populate locationHistory for every guard so movement trails are visible on the map.
+// We'll create a gently trailing path (older -> newer) by interpolating from an earlier point
+// towards the guard's current location and adding small jitter so the polyline is visible.
+// Assign default shifts to each site and assign a shift to each assigned guard.
+const defaultShifts = [
+  { id: 'shift-day', label: 'Day', startTime: '08:00', endTime: '20:00', daysOfWeek: [1,2,3,4,5,6] },
+  { id: 'shift-night', label: 'Night', startTime: '20:00', endTime: '08:00', daysOfWeek: [0,6] }
+];
+
+// Apply default shifts per site (clone per site)
+mockSites.forEach((s, si) => {
+  s.shifts = defaultShifts.map(ds => ({ ...ds, id: `${ds.id}-${si + 1}` }));
+});
+
+// Ensure two guards remain unassigned
+if (mockGuards.length >= 2) {
+  const lastIdx = mockGuards.length - 1;
+  mockGuards[lastIdx].siteId = null as any;
+  mockGuards[lastIdx - 1].siteId = null as any;
+}
+
+// Assign shifts to assigned guards
+const assignedGuardShiftMappings: { guardId: string; shiftId: string }[] = [];
+mockGuards.forEach((g, gi) => {
+  try {
+    // location history
+    if (g.location) {
+      const pts: { lat: number; lng: number; at: Date }[] = [];
+      // choose a starting offset (older point) a few tens to a few hundred meters away
+      const startOffsetMeters = 30 + (gi * 17) % 220; // vary per guard
+      const metersToDeg = (meters: number) => meters / 111320; // rough conversion
+      const startLat = g.location.lat + metersToDeg(startOffsetMeters * (Math.random() > 0.5 ? 1 : -1));
+      const startLng = g.location.lng + metersToDeg(startOffsetMeters * (Math.random() > 0.5 ? 1 : -1)) / Math.cos(g.location.lat * Math.PI / 180);
+
+      const now = Date.now();
+      // vary count so some guards have shorter/longer trails
+      const count = 8 + (gi % 8); // between 8 and 15 points
+      for (let i = 0; i < count; i++) {
+        const t = i / Math.max(1, (count - 1));
+        // smooth interpolation with a small easing so points accelerate towards current
+        const ease = t * t * (3 - 2 * t);
+        const lat = startLat + (g.location.lat - startLat) * ease + (Math.random() - 0.5) * 0.00008;
+        const lng = startLng + (g.location.lng - startLng) * ease + (Math.random() - 0.5) * 0.00008;
+        // timestamp older -> newer (spacing 10-30s per point)
+        const spacing = 10000 + Math.floor(Math.random() * 20000);
+        pts.push({ lat, lng, at: new Date(now - (count - 1 - i) * spacing) });
+      }
+      g.locationHistory = pts;
+    }
+
+    // assign a shift if guard has a site
+    if (g.siteId) {
+      const site = mockSites.find(s => s.id === g.siteId);
+      if (site && Array.isArray(site.shifts) && site.shifts.length > 0) {
+        const chosen = site.shifts[Math.floor(Math.random() * site.shifts.length)];
+        assignedGuardShiftMappings.push({ guardId: g.id, shiftId: chosen.id });
+        g.currentShiftId = chosen.id;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+});
+
+// Attach assignedGuardShifts to sites
+mockSites.forEach(site => {
+  const mappings = assignedGuardShiftMappings.filter(m => {
+    const g = mockGuards.find(gg => gg.id === m.guardId);
+    return g && g.siteId === site.id;
+  });
+  site.assignedGuardShifts = mappings;
+});
+
 // Update sites with assigned guards
 mockSites.forEach(site => {
   site.assignedGuards = mockGuards

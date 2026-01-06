@@ -22,8 +22,15 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 
 const Index = () => {
-  const [guards] = useState(mockGuards);
+  const [guards, setGuards] = useState(mockGuards);
   const [sites] = useState(mockSites);
+
+  // update guards when simulation or other code mutates mockGuards
+  useEffect(() => {
+    const onUpdate = () => setGuards([...mockGuards]);
+    window.addEventListener('guards-updated', onUpdate as EventListener);
+    return () => window.removeEventListener('guards-updated', onUpdate as EventListener);
+  }, []);
   const [now, setNow] = useState<Date>(new Date());
 
   useEffect(() => {

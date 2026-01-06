@@ -27,6 +27,9 @@ import { useToast } from '@/hooks/use-toast';
 export default function SettingsPage() {
   const [config, setConfig] = useState<SystemConfig>(defaultSystemConfig);
   const [hasChanges, setHasChanges] = useState(false);
+  const [demoMode, setDemoMode] = useState<boolean>(() => {
+    try { return window.localStorage.getItem('demo_mode') === '1'; } catch (e) { return false; }
+  });
   const { toast } = useToast();
 
   const updateConfig = <K extends keyof SystemConfig>(key: K, value: SystemConfig[K]) => {
@@ -54,6 +57,30 @@ export default function SettingsPage() {
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6 max-w-4xl">
+        {/* Demo Mode toggle for simulation */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle>Demo Mode</CardTitle>
+                  <CardDescription>Simulate guard movement on the map for demo purposes</CardDescription>
+                </div>
+              </div>
+              <Switch
+                checked={demoMode}
+                onCheckedChange={(v) => {
+                  setDemoMode(Boolean(v));
+                  try { window.localStorage.setItem('demo_mode', v ? '1' : '0'); } catch (e) {}
+                  try { window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: Boolean(v) })); } catch (e) {}
+                }}
+              />
+            </div>
+          </CardHeader>
+        </Card>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">

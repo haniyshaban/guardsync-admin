@@ -129,7 +129,7 @@ export default function SitesPage() {
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
-              a.download = 'guardwise-sites.json';
+              a.download = 'guardsync-sites.json';
               a.click();
               URL.revokeObjectURL(url);
             }}>

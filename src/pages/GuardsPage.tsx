@@ -19,24 +19,33 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 
 export default function GuardsPage() {
-  const [guards] = useState(mockGuards);
+  const [guards, setGuards] = useState(mockGuards);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<Guard['status'] | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<Guard['status'] | 'all' | 'unassigned'>('all');
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     const param = searchParams.get('status');
-    const allowed = ['all', 'online', 'idle', 'offline', 'alert'];
+    const allowed = ['all', 'online', 'idle', 'offline', 'alert', 'panic', 'unassigned'];
     if (param && allowed.includes(param)) {
-      setStatusFilter(param as Guard['status'] | 'all');
+      setStatusFilter(param as Guard['status'] | 'all' | 'unassigned');
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const onUpdate = () => setGuards([...mockGuards]);
+    window.addEventListener('guards-updated', onUpdate as EventListener);
+    return () => window.removeEventListener('guards-updated', onUpdate as EventListener);
+  }, []);
 
   const filteredGuards = guards.filter(guard => {
     const matchesSearch = guard.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       guard.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
       guard.phone.includes(searchQuery);
-    const matchesStatus = statusFilter === 'all' || guard.status === statusFilter;
+    let matchesStatus = false;
+    if (statusFilter === 'all') matchesStatus = true;
+    else if (statusFilter === 'unassigned') matchesStatus = guard.siteId === null;
+    else matchesStatus = guard.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -95,7 +104,7 @@ export default function GuardsPage() {
               <div className="flex items-center gap-2 overflow-auto">
                 <Filter className="w-4 h-4 text-muted-foreground" />
                 <div className="flex gap-1">
-                  {(['all', 'online', 'idle', 'offline', 'alert'] as const).map((status) => (
+                  {(['all', 'online', 'idle', 'offline', 'alert', 'panic', 'unassigned'] as const).map((status) => (
                     <Button
                       key={status}
                       variant={statusFilter === status ? 'default' : 'ghost'}
@@ -126,6 +135,7 @@ export default function GuardsPage() {
                     <th className="text-left p-4 text-sm font-semibold text-muted-foreground">Guard</th>
                     <th className="text-left p-4 text-sm font-semibold text-muted-foreground">Status</th>
                     <th className="text-left p-4 text-sm font-semibold text-muted-foreground">Assigned Site</th>
+                    <th className="text-left p-4 text-sm font-semibold text-muted-foreground">Shift</th>
                     <th className="text-left p-4 text-sm font-semibold text-muted-foreground">Last Seen</th>
                     <th className="text-left p-4 text-sm font-semibold text-muted-foreground">Clock Status</th>
                     <th className="text-right p-4 text-sm font-semibold text-muted-foreground">Actions</th>
@@ -161,6 +171,18 @@ export default function GuardsPage() {
                         <div className="flex items-center gap-2 text-sm">
                           <MapPin className="w-4 h-4 text-muted-foreground" />
                           {getSiteName(guard.siteId)}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-sm text-muted-foreground">
+                          {(() => {
+                            const site = mockSites.find(s => s.id === guard.siteId);
+                            if (!site) return '—';
+                            const shifts = (site as any).shifts as any[] | undefined;
+                            if (!shifts || shifts.length === 0) return '—';
+                            const s = shifts.find(ss => ss.id === guard.currentShiftId);
+                            return s ? (s.label || `${s.startTime}-${s.endTime}`) : '—';
+                          })()}
                         </div>
                       </td>
                       <td className="p-4">
