@@ -40,11 +40,41 @@ export default function useSimulation() {
       intervalRef.current = window.setInterval(applyStep, 5000);
     };
 
+    // periodic backend sync for moved guards (every 30s)
+    let syncRef: number | null = null;
+    const lastSentPos: Record<string, string> = {};
+    const doSync = async () => {
+      try {
+        const toSync = mockGuards.filter(g => g.location).filter(g => {
+          const key = `${g.location!.lat},${g.location!.lng}`;
+          if (lastSentPos[g.id] === key) return false;
+          lastSentPos[g.id] = key;
+          return true;
+        });
+        for (const g of toSync) {
+          // fire-and-forget update
+          try {
+            await fetch(`http://localhost:4000/api/guards/${g.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...g,
+                lastSeen: new Date().toISOString(),
+              }),
+            });
+          } catch (e) {
+            // ignore individual failures
+          }
+        }
+      } catch (e) {}
+    };
+
     const stop = () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      if (syncRef) { clearInterval(syncRef); syncRef = null; }
     };
 
     const onDemoMode = (e: Event) => {
@@ -57,6 +87,11 @@ export default function useSimulation() {
     try {
       const enabled = typeof window !== 'undefined' && window.localStorage.getItem('demo_mode') === '1';
       if (enabled) start();
+    } catch (e) {}
+
+    // start sync loop regardless of demo_mode (only when running in browser)
+    try {
+      syncRef = window.setInterval(() => { doSync(); }, 30000);
     } catch (e) {}
 
     window.addEventListener('demo-mode-changed', onDemoMode as EventListener);

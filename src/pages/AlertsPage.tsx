@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { mockGuards } from '@/data/mockData';
+import { toast as sonnerToast } from '@/components/ui/sonner';
 import { 
   Bell, 
   AlertTriangle,
@@ -72,7 +73,26 @@ export default function AlertsPage() {
                     <Link to={`/guards/${guard.id}`}>
                       <Button variant="ghost" size="sm">View Guard Details</Button>
                     </Link>
-                    <Button variant="success" size="sm">
+                    <Button variant="success" size="sm" onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        const res = await fetch(`http://localhost:4000/api/guards/${guard.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ ...guard, status: 'idle', lastSeen: new Date().toISOString() }),
+                        });
+                        if (!res.ok) throw new Error('Failed to update guard');
+                        const updated = await res.json();
+                        // merge into local mockGuards
+                        const idx = mockGuards.findIndex(g => g.id === updated.id);
+                        if (idx >= 0) mockGuards[idx] = { ...mockGuards[idx], ...updated };
+                        try { window.dispatchEvent(new CustomEvent('guards-updated')); } catch (e) {}
+                        sonnerToast.success('Alert resolved');
+                      } catch (err) {
+                        console.error('Resolve failed', err);
+                        sonnerToast.error('Failed to resolve alert');
+                      }
+                    }}>
                       <CheckCircle className="w-4 h-4 mr-1" />
                       Resolve
                     </Button>
