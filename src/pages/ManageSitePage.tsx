@@ -11,18 +11,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { MapContainer, TileLayer, Marker, Polygon, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ManageSitePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const siteId = String(id || '');
 
-  const initialSite = useMemo(() => mockSites.find(s => s.id === siteId) || null, [siteId]);
-  const [site, setSite] = useState<any>(initialSite);
-  const [name, setName] = useState(site?.name || '');
-  const [isActive, setIsActive] = useState<boolean>(!!site?.isActive);
-  const [assignedGuardIds, setAssignedGuardIds] = useState<string[]>(site?.assignedGuards?.slice() || []);
-  const [assignedGuardShifts, setAssignedGuardShifts] = useState<{ guardId: string; shiftId: string }[]>(site?.assignedGuardShifts?.slice() || []);
+  // Load site from backend if available; fall back to in-memory mockSites
+  const [site, setSite] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const [assignedGuardIds, setAssignedGuardIds] = useState<string[]>([]);
+  const [assignedGuardShifts, setAssignedGuardShifts] = useState<{ guardId: string; shiftId: string }[]>([]);
   const [selectedAddGuard, setSelectedAddGuard] = useState<string>('');
   const [selectedAddGuardShift, setSelectedAddGuardShift] = useState<string>('');
   const defaultShifts = [
@@ -34,20 +35,44 @@ export default function ManageSitePage() {
   const [radiusValue, setRadiusValue] = useState<number>(site?.geofenceRadius || 100);
   const [polygonText, setPolygonText] = useState<string>(site?.geofencePolygon ? JSON.stringify(site.geofencePolygon, null, 2) : '');
   const [polygonPoints, setPolygonPoints] = useState<{lat:number;lng:number}[]>(site?.geofencePolygon ? site.geofencePolygon.map((p:any)=>({lat:Number(p.lat), lng:Number(p.lng)})) : []);
+  const { toast } = useToast();
 
+  // fetch site from backend, fallback to mockSites if server not available
   useEffect(() => {
-    if (!initialSite) return;
-    setSite(initialSite);
-    setName(initialSite.name);
-    setIsActive(!!initialSite.isActive);
-    setAssignedGuardIds(initialSite.assignedGuards?.slice() || []);
-    setAssignedGuardShifts(initialSite.assignedGuardShifts?.slice() || []);
-    setSiteShifts(initialSite.shifts?.slice() || defaultShifts);
-    setGeofenceMode(initialSite.geofenceType || 'radius');
-    setRadiusValue(initialSite.geofenceRadius || 100);
-    setPolygonText(initialSite.geofencePolygon ? JSON.stringify(initialSite.geofencePolygon, null, 2) : '');
-    setPolygonPoints(initialSite.geofencePolygon ? initialSite.geofencePolygon.map((p:any)=>({lat:Number(p.lat), lng:Number(p.lng)})) : []);
-  }, [initialSite]);
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(siteId)}`);
+        if (res.ok) {
+          const s = await res.json();
+          if (cancelled) return;
+          setSite(s);
+          return;
+        }
+      } catch (err) {
+        // ignore
+      }
+      // fallback
+      const fallback = mockSites.find(s => s.id === siteId) || null;
+      if (!cancelled) setSite(fallback);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [siteId]);
+
+  // initialize local form state when `site` is set
+  useEffect(() => {
+    if (!site) return;
+    setName(site.name || '');
+    setIsActive(!!site.isActive);
+    setAssignedGuardIds(site.assignedGuards?.slice() || []);
+    setAssignedGuardShifts(site.assignedGuardShifts?.slice() || []);
+    setSiteShifts(site.shifts?.slice() || defaultShifts);
+    setGeofenceMode(site.geofenceType || 'radius');
+    setRadiusValue(site.geofenceRadius || 100);
+    setPolygonText(site.geofencePolygon ? JSON.stringify(site.geofencePolygon, null, 2) : '');
+    setPolygonPoints(site.geofencePolygon ? site.geofencePolygon.map((p:any)=>({lat:Number(p.lat), lng:Number(p.lng)})) : []);
+  }, [site]);
 
   if (!site) {
     return (
@@ -75,66 +100,86 @@ export default function ManageSitePage() {
   const availableGuards = mockGuards.filter(g => !assignedGuardIds.includes(g.id));
 
   function saveChanges() {
-    try {
-      // update mockSites in-memory
-      const idx = mockSites.findIndex(ms => ms.id === site.id);
-      // prepare geofence payload
-      const updatedGeofence: any = {};
-      updatedGeofence.geofenceType = geofenceMode;
-      if (geofenceMode === 'radius') {
-        updatedGeofence.geofenceRadius = Number(radiusValue) || 0;
-        updatedGeofence.geofencePolygon = undefined;
-      } else {
-        // prefer drawn polygon points, fallback to parsed JSON
-        if (polygonPoints && polygonPoints.length > 0) {
-          updatedGeofence.geofencePolygon = polygonPoints.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+    // perform PUT to backend; on success update in-memory mockSites/mockGuards and UI
+    (async () => {
+      try {
+        // build payload
+        const payload: any = { ...site };
+        payload.name = name;
+        payload.isActive = isActive;
+        payload.assignedGuards = assignedGuardIds.slice();
+        payload.shifts = siteShifts.slice();
+        payload.assignedGuardShifts = assignedGuardShifts.slice();
+        payload.geofenceType = geofenceMode;
+        if (geofenceMode === 'radius') {
+          payload.geofenceRadius = Number(radiusValue) || 0;
+          delete payload.geofencePolygon;
         } else {
-          try {
-            const parsed = JSON.parse(polygonText);
-            if (Array.isArray(parsed)) {
-              updatedGeofence.geofencePolygon = parsed.map((p: any) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
-            }
-          } catch (err) {
-            // ignore
+          if (polygonPoints && polygonPoints.length > 0) {
+            payload.geofencePolygon = polygonPoints.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+          } else {
+            try {
+              const parsed = JSON.parse(polygonText);
+              if (Array.isArray(parsed)) payload.geofencePolygon = parsed.map((p: any) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
+            } catch (err) {}
           }
         }
-        updatedGeofence.geofenceRadius = undefined;
-      }
 
-      if (idx >= 0) {
-        mockSites[idx] = { ...mockSites[idx], name, isActive, assignedGuards: assignedGuardIds, shifts: siteShifts, assignedGuardShifts: assignedGuardShifts, ...updatedGeofence };
-      } else {
-        mockSites.push({ ...site, name, isActive, assignedGuards: assignedGuardIds, shifts: siteShifts, assignedGuardShifts: assignedGuardShifts, ...updatedGeofence });
-      }
+        // call backend
 
-      // update mockGuards assignments and shift ids in-memory
-      mockGuards.forEach(g => {
-        const assigned = assignedGuardIds.includes(g.id);
-        if (assigned) {
-          g.siteId = site.id;
-          const mapping = assignedGuardShifts.find(a => a.guardId === g.id);
-          if (mapping) g.currentShiftId = mapping.shiftId;
-        } else if (g.siteId === site.id && !assigned) {
-          g.siteId = null as any;
-          g.currentShiftId = undefined;
+        const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        console.log('[ManageSitePage] PUT payload:', payload);
+        if (!res.ok) {
+          toast({ title: 'Failed to save site', description: `Server error: ${res.status}` });
+          return;
         }
-      });
+        const putResult = await res.json();
+        console.log('[ManageSitePage] PUT result:', putResult);
+        // server may return { ok: true } — fetch authoritative record
+        let saved: any = null;
+        if (putResult && putResult.ok) {
+          const getRes = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`);
+          console.log('[ManageSitePage] fetching authoritative site after PUT');
+          if (getRes.ok) saved = await getRes.json();
+          console.log('[ManageSitePage] GET result:', saved);
+        } else {
+          saved = putResult;
+        }
+        const merged = saved ? { ...site, ...saved } : { ...site };
 
-      // persist sites to localStorage for cross-page visibility
-      try {
-        localStorage.setItem('gw_sites', JSON.stringify(mockSites));
+        // update in-memory mockSites
+        try {
+          const idx = mockSites.findIndex(ms => ms.id === site.id);
+          if (idx >= 0) mockSites[idx] = merged;
+          else mockSites.push(merged);
+        } catch (e) {}
+
+        // update mockGuards assignments and shift ids in-memory
+        try {
+          mockGuards.forEach(g => {
+            const assigned = (payload.assignedGuards || []).includes(g.id);
+            if (assigned) {
+              g.siteId = site.id;
+              const mapping = (payload.assignedGuardShifts || []).find((a: any) => a.guardId === g.id);
+              if (mapping) g.currentShiftId = mapping.shiftId;
+            } else if (g.siteId === site.id && !assigned) {
+              g.siteId = null as any;
+              g.currentShiftId = undefined;
+            }
+          });
+        } catch (e) {}
+
+        // refresh local site state
+        setSite(merged);
+        toast({ title: 'Site saved', description: 'Saved to database.' });
       } catch (err) {
-        // ignore
+        toast({ title: 'Failed to save site', description: 'Connection error.' });
       }
-
-      // refresh local `site` state so UI reflects saved values while staying on page
-      const refreshed = mockSites.find(ms => ms.id === site.id);
-      if (refreshed) setSite(refreshed);
-
-      alert('Site saved');
-    } catch (err) {
-      alert('Failed to save site');
-    }
+    })();
   }
 
   function removeGuard(guardId: string) {

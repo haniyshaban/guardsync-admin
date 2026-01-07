@@ -38,6 +38,26 @@ export default function GuardsPage() {
     return () => window.removeEventListener('guards-updated', onUpdate as EventListener);
   }, []);
 
+  // fetch guards from backend and sync into in-memory mockGuards
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/guards');
+        if (!res.ok) throw new Error('Failed to fetch guards');
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          mockGuards.length = 0;
+          data.forEach((g: any) => mockGuards.push(g));
+          setGuards([...mockGuards]);
+          try { window.dispatchEvent(new CustomEvent('guards-updated')); } catch (e) {}
+        }
+      } catch (e) {
+        console.log('Could not load guards from backend', e);
+      }
+    };
+    load();
+  }, []);
+
   const filteredGuards = guards.filter(guard => {
     const matchesSearch = guard.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       guard.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||

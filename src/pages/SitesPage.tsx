@@ -8,6 +8,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { mockSites, mockGuards } from '@/data/mockData';
 import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -31,31 +32,65 @@ export default function SitesPage() {
   const [polygonText, setPolygonText] = useState<string>('');
   const [polygonPoints, setPolygonPoints] = useState<{lat:number;lng:number}[]>([]);
 
-  // Load persisted sites from localStorage on mount (if present)
+  const { toast } = useToast();
+
+  // Load persisted sites from backend on mount (if available)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('gw_sites');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const rev = parsed.map((s: any) => ({
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch('http://localhost:4000/api/sites');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (Array.isArray(data)) {
+          // normalize types
+          const rev = data.map((s: any) => ({
             ...s,
             createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
             geofenceRadius: s.geofenceRadius ? Number(s.geofenceRadius) : 0,
           }));
-          setSites(rev);
-          // also sync the imported mockSites array for other code that reads it
+          setSites(rev as any);
+          // sync in-memory mockSites so other parts of app continue to read a consistent source
           try {
             mockSites.length = 0;
             rev.forEach((r: any) => mockSites.push(r));
           } catch (e) {
             // ignore
           }
+        } else {
+          // fallback to previous localStorage fallback if backend returns unexpected shape
+          try {
+            const raw = localStorage.getItem('gw_sites');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) {
+                setSites(parsed as any);
+                mockSites.length = 0;
+                (parsed as any).forEach((p: any) => mockSites.push(p));
+              }
+            }
+          } catch (e) {}
         }
+      } catch (err) {
+        // If backend is not reachable, fall back to localStorage
+        try {
+          const raw = localStorage.getItem('gw_sites');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              setSites(parsed as any);
+              mockSites.length = 0;
+              (parsed as any).forEach((p: any) => mockSites.push(p));
+            }
+          }
+        } catch (e) {}
+        // notify user of connection error
+        toast({ title: 'Could not load sites from server', description: 'Using local cached sites.' });
       }
-    } catch (err) {
-      // ignore parse errors
     }
+    load();
+    return () => { cancelled = true; };
   }, []);
 
   const filteredSites = sites.filter(site => 
@@ -204,53 +239,59 @@ export default function SitesPage() {
             <DialogFooter>
               <div className="flex gap-2">
                 <Button variant="ghost" onClick={() => setIsConfigOpen(false)}>Cancel</Button>
-                <Button onClick={() => {
+                <Button onClick={async () => {
                   if (!activeSite) return;
-                  const updated = sites.map(s => {
-                    if (s.id !== activeSite.id) return s;
-                    const copy: any = { ...s };
-                    copy.geofenceType = geofenceMode;
-                    if (geofenceMode === 'radius') {
-                      copy.geofenceRadius = Number(radiusValue) || copy.geofenceRadius;
-                      delete copy.geofencePolygon;
+                  // build updated site
+                  const updatedSite: any = { ...activeSite };
+                  updatedSite.geofenceType = geofenceMode;
+                  if (geofenceMode === 'radius') {
+                    updatedSite.geofenceRadius = Number(radiusValue) || 0;
+                    delete updatedSite.geofencePolygon;
+                  } else {
+                    if (polygonPoints && polygonPoints.length > 0) {
+                      updatedSite.geofencePolygon = polygonPoints.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
                     } else {
-                      // Prefer polygonPoints drawn on the map; fall back to pasted JSON
-                      if (polygonPoints && polygonPoints.length > 0) {
-                        copy.geofencePolygon = polygonPoints.map(p => ({ lat: Number(p.lat), lng: Number(p.lng) }));
-                      } else {
-                        try {
-                          const parsed = JSON.parse(polygonText);
-                          if (Array.isArray(parsed)) {
-                            copy.geofencePolygon = parsed.map((p: any) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
-                          }
-                        } catch (err) {
-                          // ignore parse error
+                      try {
+                        const parsed = JSON.parse(polygonText);
+                        if (Array.isArray(parsed)) {
+                          updatedSite.geofencePolygon = parsed.map((p: any) => ({ lat: Number(p.lat), lng: Number(p.lng) }));
                         }
+                      } catch (err) {
+                        // ignore
                       }
                     }
-                    return copy;
-                  });
-                  setSites(updated);
-                  // Persist changes to the shared in-memory mockSites so other pages see the update
+                  }
+
                   try {
-                    const updatedSite = updated.find(u => u.id === activeSite.id);
-                    if (updatedSite) {
-                      const idx = mockSites.findIndex(ms => ms.id === updatedSite.id);
-                      if (idx >= 0) {
-                        mockSites[idx] = updatedSite;
-                      } else {
-                        mockSites.push(updatedSite);
-                      }
+                    const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(activeSite.id))}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(updatedSite),
+                    });
+                    console.log('[SitesPage] PUT payload:', updatedSite);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const putResult = await res.json();
+                    console.log('[SitesPage] PUT result:', putResult);
+                    // server may only return { ok: true } — fetch the authoritative record
+                    let savedSite: any = null;
+                    if (putResult && putResult.ok) {
+                      const getRes = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(activeSite.id))}`);
+                      console.log('[SitesPage] fetching authoritative site after PUT');
+                      if (getRes.ok) savedSite = await getRes.json();
+                      console.log('[SitesPage] GET result:', savedSite);
+                    } else {
+                      savedSite = putResult;
                     }
+                    const merged = savedSite ? { ...activeSite, ...savedSite } : { ...activeSite };
+                    // update local UI and in-memory cache
+                    const updated = sites.map(s => s.id === activeSite.id ? merged : s);
+                    setSites(updated as any);
+                    try { mockSites.length = 0; (updated as any).forEach((u:any) => mockSites.push(u)); } catch (e) {}
+                    toast({ title: 'Site saved', description: 'Geofence saved to server.' });
                   } catch (err) {
-                    // ignore
+                    toast({ title: 'Failed to save site', description: 'Could not connect to backend.' });
                   }
-                  // Save to localStorage so changes persist across reloads
-                  try {
-                    localStorage.setItem('gw_sites', JSON.stringify(updated));
-                  } catch (err) {
-                    // ignore
-                  }
+
                   setIsConfigOpen(false);
                 }}>Save</Button>
               </div>

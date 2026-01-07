@@ -375,6 +375,9 @@ export function LiveMap({
   // Prefer `locationHistory` when present; otherwise synthesize around current location.
   const generateMockTrail = (guard: Guard, count = 10) => {
     if (guard.locationHistory && guard.locationHistory.length > 0) {
+      try {
+        console.log('generateMockTrail:', guard.id, 'historyLen=', guard.locationHistory.length);
+      } catch (e) {}
       const hist = guard.locationHistory.slice(-count).map(h => [h.lat, h.lng] as [number, number]);
       return hist;
     }
@@ -398,7 +401,7 @@ export function LiveMap({
     useEffect(() => {
       if (!positions || positions.length === 0) return;
       if (trigger === undefined) return;
-
+      try { console.log('PlaybackController start - positions:', positions.length, 'trigger=', trigger); } catch (e) {}
       // remove existing marker if any
       if (markerRef.current) {
         try { map.removeLayer(markerRef.current); } catch (e) {}

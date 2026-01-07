@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useState } from 'react';
 import { SystemConfig } from '@/types';
-import { defaultSystemConfig } from '@/data/mockData';
+import { defaultSystemConfig, resetDemoData } from '@/data/mockData';
 import { 
   Settings, 
   Sparkles, 
@@ -70,6 +70,8 @@ export default function SettingsPage() {
                   <CardDescription>Simulate guard movement on the map for demo purposes</CardDescription>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={() => { resetDemoData(); try { window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: window.localStorage.getItem('demo_mode') === '1' })); } catch(e){}; toast({ title: 'Demo data reset', description: 'Guards restored to starting positions.' }); }} className="mr-2">Reset Demo Data</Button>
               <Switch
                 checked={demoMode}
                 onCheckedChange={(v) => {
@@ -78,6 +80,7 @@ export default function SettingsPage() {
                   try { window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: Boolean(v) })); } catch (e) {}
                 }}
               />
+              </div>
             </div>
           </CardHeader>
         </Card>
