@@ -2,7 +2,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { mockGuards } from '@/data/mockData';
+import { mockGuards, mockAttendanceLogs, mockSites } from '@/data/mockData';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 import { 
   Bell, 
@@ -14,7 +14,28 @@ import { formatDistanceToNow } from 'date-fns';
 import { Link } from 'react-router-dom';
 
 export default function AlertsPage() {
-  const alertGuards = mockGuards.filter(g => g.status === 'alert');
+  const missed = mockGuards.filter(g => {
+    if (!g.siteId) return false;
+    const site = mockSites.find(s => s.id === g.siteId);
+    if (!site || !site.isActive) return false;
+    const attendance = mockAttendanceLogs.find(l => l.guardId === g.id);
+    const hasClockedIn = (attendance && attendance.clockIn) ?
+      (new Date(attendance.clockIn).toDateString() === new Date().toDateString()) :
+      (g.clockInTime ? new Date(g.clockInTime).toDateString() === new Date().toDateString() : false);
+    return !hasClockedIn;
+  });
+
+  const alertMap = new Map<string, { guard: typeof mockGuards[number]; reason: 'status' | 'missed' }>();
+  mockGuards.filter(g => g.status === 'alert').forEach(g => alertMap.set(g.id, { guard: g, reason: 'status' }));
+  missed.forEach(g => { if (!alertMap.has(g.id)) alertMap.set(g.id, { guard: g, reason: 'missed' }); });
+  const alertGuards = Array.from(alertMap.values()).map(v => v.guard);
+
+  // Precompute attendance/isMissed to simplify JSX mapping (avoids complex inline blocks)
+  const alertsToRender = alertGuards.map(g => {
+    const attendance = mockAttendanceLogs.find(l => l.guardId === g.id);
+    const isMissed = attendance ? (new Date(attendance.clockIn).toDateString() !== new Date().toDateString()) : (!g.clockInTime || new Date(g.clockInTime).toDateString() !== new Date().toDateString());
+    return { guard: g, isMissed };
+  });
 
   return (
     <DashboardLayout>
@@ -38,7 +59,7 @@ export default function AlertsPage() {
         </div>
 
         <div className="space-y-4">
-          {alertGuards.map((guard, index) => (
+          {alertsToRender.map(({ guard, isMissed }, index) => (
             <Card 
               key={guard.id}
               variant="elevated"
@@ -57,7 +78,7 @@ export default function AlertsPage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{guard.name}</p>
-                        <Badge variant="alert">Missed Check-in</Badge>
+                        <Badge variant="alert">{isMissed ? 'Missed Check-in' : 'Alert'}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground font-mono">{guard.employeeId}</p>
                       <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">

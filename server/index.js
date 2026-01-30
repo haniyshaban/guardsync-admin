@@ -179,29 +179,36 @@ const guardRowToObj = (row) => ({
   currentShiftId: row.currentShiftId || undefined,
 });
 
-// Seed guards table with demo guards if empty
+// Seed guards table with guards from initialData.json if empty
 const guardCount = db.prepare('SELECT COUNT(*) as c FROM guards').get().c;
 if (guardCount === 0) {
   try {
-    const now = new Date().toISOString();
-    const demoGuards = [
-      { id: 'guard-1', name: 'Rajesh Kumar', phone: '+91 7000000001', employeeId: 'EMP1001', siteId: 'site-1', status: 'online', lastSeen: now, lat: 12.9702, lng: 77.7494, locationHistory: JSON.stringify([{ lat: 12.9702, lng: 77.7494, at: now }]), clockedIn: 1, clockInTime: now },
-      { id: 'guard-2', name: 'Amit Singh', phone: '+91 7000000002', employeeId: 'EMP1002', siteId: 'site-1', status: 'online', lastSeen: now, lat: 12.9696, lng: 77.7489, locationHistory: JSON.stringify([{ lat: 12.9696, lng: 77.7489, at: now }]), clockedIn: 1, clockInTime: now },
-      { id: 'guard-3', name: 'Suresh Sharma', phone: '+91 7000000003', employeeId: 'EMP1003', siteId: 'site-1', status: 'online', lastSeen: now, lat: 12.9700, lng: 77.7490, locationHistory: JSON.stringify([{ lat: 12.97, lng: 77.7490, at: now }]), clockedIn: 1, clockInTime: now },
-      { id: 'guard-4', name: 'Vikram Verma', phone: '+91 7000000004', employeeId: 'EMP1004', siteId: 'site-1', status: 'online', lastSeen: now, lat: 12.9699, lng: 77.7493, locationHistory: JSON.stringify([{ lat: 12.9699, lng: 77.7493, at: now }]), clockedIn: 1, clockInTime: now },
-      { id: 'guard-5', name: 'Anil Gupta', phone: '+91 7000000005', employeeId: 'EMP1005', siteId: 'site-2', status: 'online', lastSeen: now, lat: 12.9352, lng: 77.6192, locationHistory: JSON.stringify([{ lat: 12.9352, lng: 77.6192, at: now }]), clockedIn: 1, clockInTime: now },
-      { id: 'guard-6', name: 'Deepak Patel', phone: '+91 7000000006', employeeId: 'EMP1006', siteId: 'site-2', status: 'online', lastSeen: now, lat: 12.9348, lng: 77.6187, locationHistory: JSON.stringify([{ lat: 12.9348, lng: 77.6187, at: now }]), clockedIn: 1, clockInTime: now },
-      { id: 'guard-7', name: 'Manish Kapoor', phone: '+91 7000000007', employeeId: 'EMP1007', siteId: 'site-2', status: 'alert', lastSeen: now, lat: 12.9351, lng: 77.6194, locationHistory: JSON.stringify([{ lat: 12.9351, lng: 77.6194, at: now }]), clockedIn: 1, clockInTime: now },
-      { id: 'guard-8', name: 'Sanjay Reddy', phone: '+91 7000000008', employeeId: 'EMP1008', siteId: 'site-3', status: 'idle', lastSeen: now, lat: 12.9761, lng: 77.6052, locationHistory: JSON.stringify([{ lat: 12.9761, lng: 77.6052, at: now }]), clockedIn: 1, clockInTime: now },
-      { id: 'guard-9', name: 'Ravi Nair', phone: '+91 7000000009', employeeId: 'EMP1009', siteId: 'site-3', status: 'offline', lastSeen: now, lat: 12.9756, lng: 77.6048, locationHistory: JSON.stringify([{ lat: 12.9756, lng: 77.6048, at: now }]), clockedIn: 0, clockInTime: null },
-      { id: 'guard-10', name: 'Prakash Mehta', phone: '+91 7000000010', employeeId: 'EMP1010', siteId: 'site-3', status: 'idle', lastSeen: now, lat: 12.9758, lng: 77.6051, locationHistory: JSON.stringify([{ lat: 12.9758, lng: 77.6051, at: now }]), clockedIn: 1, clockInTime: now },
-    ];
-    const insertG = db.prepare('INSERT INTO guards (id,name,phone,employeeId,siteId,status,lastSeen,lat,lng,locationHistory,clockedIn,clockInTime,currentShiftId) VALUES (@id,@name,@phone,@employeeId,@siteId,@status,@lastSeen,@lat,@lng,@locationHistory,@clockedIn,@clockInTime,@currentShiftId)');
-    const insertManyG = db.transaction((gs) => {
-      for (const g of gs) insertG.run(g);
-    });
-    insertManyG(demoGuards);
-    console.log('Seeded guards into sqlite DB');
+    const raw = fs.readFileSync(INITIAL_JSON, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed.guards)) {
+      const insertG = db.prepare('INSERT INTO guards (id,name,phone,employeeId,siteId,status,lastSeen,lat,lng,locationHistory,clockedIn,clockInTime,currentShiftId) VALUES (@id,@name,@phone,@employeeId,@siteId,@status,@lastSeen,@lat,@lng,@locationHistory,@clockedIn,@clockInTime,@currentShiftId)');
+      const insertManyG = db.transaction((gs) => {
+        for (const g of gs) {
+          insertG.run({
+            id: g.id,
+            name: g.name,
+            phone: g.phone,
+            employeeId: g.employeeId,
+            siteId: g.siteId,
+            status: g.status,
+            lastSeen: g.lastSeen,
+            lat: g.location.lat,
+            lng: g.location.lng,
+            locationHistory: JSON.stringify(g.locationHistory || []),
+            clockedIn: g.clockedIn ? 1 : 0,
+            clockInTime: g.clockInTime || null,
+            currentShiftId: g.currentShiftId || null
+          });
+        }
+      });
+      insertManyG(parsed.guards);
+      console.log('Seeded guards from initialData.json into sqlite DB');
+    }
   } catch (err) {
     console.error('Failed to seed guards:', err);
   }

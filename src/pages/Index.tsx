@@ -5,7 +5,8 @@ import { LiveMap } from '@/components/map/LiveMap';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockGuards, mockSites, calculateDashboardStats } from '@/data/mockData';
+import { mockGuards, mockSites, calculateDashboardStats, mockAttendanceLogs } from '@/data/mockData';
+import L from 'leaflet';
 import { 
   Users, 
   UserCheck, 
@@ -56,9 +57,80 @@ const Index = () => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+  // compute dashboard stats (core counts)
   const stats = calculateDashboardStats(guards, sites);
 
-  const recentAlerts = guards.filter(g => g.status === 'alert').slice(0, 5);
+  // compute missed check-ins (no clock-in today)
+  const missedCheckins = guards.filter(g => {
+    if (!g.siteId) return false;
+    const site = sites.find(s => s.id === g.siteId);
+    if (!site || !site.isActive) return false;
+    const attendance = mockAttendanceLogs.find(l => l.guardId === g.id);
+    const hasClockedIn = (attendance && attendance.clockIn) ?
+      (new Date(attendance.clockIn).toDateString() === new Date().toDateString()) :
+      (g.clockInTime ? new Date(g.clockInTime).toDateString() === new Date().toDateString() : false);
+    return !hasClockedIn;
+  });
+
+  // Attrition: how many are working today vs total expected (assigned) on active sites
+  // derive expected from current guard roster assigned to active sites (avoids stale site.assignedGuards)
+  const expectedAssigned = guards.filter(g => {
+    if (!g.siteId) return false;
+    const s = sites.find(x => x.id === g.siteId);
+    return !!s && s.isActive;
+  }).length;
+
+  const workingToday = guards.filter(g => {
+    if (!g.siteId) return false;
+    const site = sites.find(s => s.id === g.siteId);
+    if (!site || !site.isActive) return false;
+    const attendance = mockAttendanceLogs.find(l => l.guardId === g.id);
+    const hasClockedIn = (attendance && attendance.clockIn) ?
+      (new Date(attendance.clockIn).toDateString() === new Date().toDateString()) :
+      (g.clockInTime ? new Date(g.clockInTime).toDateString() === new Date().toDateString() : false);
+    return !!hasClockedIn;
+  }).length;
+
+  const attritionPercent = expectedAssigned > 0 ? Math.round(((expectedAssigned - workingToday) / expectedAssigned) * 100) : 0;
+
+  // Helper: point-in-polygon + radius check (copied from LiveMap) to compute not-on-site
+  const pointInPolygon = (point: [number, number], vs: Array<[number, number]>): boolean => {
+    const x = point[0], y = point[1];
+    let inside = false;
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+      const xi = vs[i][0], yi = vs[i][1];
+      const xj = vs[j][0], yj = vs[j][1];
+      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + Number.EPSILON) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  };
+
+  const isPointInsideSiteGeofence = (lat: number, lng: number, site: typeof sites[number]) => {
+    if ((site as any).geofenceType === 'polygon' && Array.isArray((site as any).geofencePolygon) && (site as any).geofencePolygon.length > 0) {
+      const vs = (site as any).geofencePolygon.map((p: any) => [p.lat, p.lng] as [number, number]);
+      return pointInPolygon([lat, lng], vs);
+    }
+    const dist = L.latLng(lat, lng).distanceTo(L.latLng(site.location.lat, site.location.lng));
+    return dist <= (site.geofenceRadius || 0);
+  };
+
+  const notOnSiteCount = guards.filter(g => {
+    if (!g.siteId) return false;
+    const site = sites.find(s => s.id === g.siteId);
+    if (!site || !site.isActive) return false;
+    if (!g.location) return true;
+    try {
+      return !isPointInsideSiteGeofence(g.location.lat, g.location.lng, site);
+    } catch (e) { return true; }
+  }).length;
+
+  // recent alerts should include status alerts plus missed check-ins (non-destructive)
+  const alertSet = new Map<string, { guard: typeof guards[number]; reason: string }>();
+  guards.filter(g => g.status === 'alert').forEach(g => alertSet.set(g.id, { guard: g, reason: 'status' }));
+  missedCheckins.forEach(g => { if (!alertSet.has(g.id)) alertSet.set(g.id, { guard: g, reason: 'missed' }); });
+  const combinedAlerts = Array.from(alertSet.values()).map(v => v.guard);
+  const recentAlerts = combinedAlerts.slice(0, 5);
 
   return (
     <DashboardLayout>
@@ -105,6 +177,20 @@ const Index = () => {
             variant="success"
             trend={{ value: 12, isPositive: true }}
             to="/guards?status=online"
+          />
+          <StatCard
+            title="Attrition"
+            value={`${workingToday}/${expectedAssigned} (${attritionPercent}%)`}
+            icon={Users}
+            variant="warning"
+            to="/guards"
+          />
+          <StatCard
+            title="Not On Site"
+            value={notOnSiteCount}
+            icon={UserX}
+            variant="destructive"
+            to="/guards?filter=not-on-site"
           />
           <StatCard
             title="Offline"
@@ -209,7 +295,7 @@ const Index = () => {
                         <p className="font-medium text-sm">{guard.name}</p>
                         <p className="text-xs text-muted-foreground">{guard.employeeId}</p>
                       </div>
-                      <Badge variant="alert">Missed Check-in</Badge>
+                            <Badge variant="alert">{(mockAttendanceLogs.find(l => l.guardId === guard.id) || !guard.clockInTime) ? 'Missed Check-in' : 'Alert'}</Badge>
                     </div>
                   </Link>
                 ))}

@@ -265,7 +265,7 @@ export function LiveMap({
   onGuardClick,
   onSiteClick,
   focusSiteId,
-  showTrails = false,
+  showTrails = true,
   playbackGuardId,
   playbackTrigger,
 }: LiveMapProps) {

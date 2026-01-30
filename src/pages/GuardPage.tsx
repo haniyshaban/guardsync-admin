@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { mockGuards, mockSites, mockAttendanceLogs } from '@/data/mockData';
 import { useParams, Link } from 'react-router-dom';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow, format, isSameDay } from 'date-fns';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -32,6 +32,40 @@ const GuardPage = () => {
     },
   ];
 
+  // Helper: determine if guard has clocked in today
+  const hasClockedInToday = (() => {
+    if (attendance && attendance.clockIn) return isSameDay(new Date(attendance.clockIn), new Date());
+    if (guard.clockInTime) return isSameDay(new Date(guard.clockInTime), new Date());
+    return false;
+  })();
+
+  // Helper: determine guard's assigned/current shift label
+  const shiftInfo = (() => {
+    if (!site || !site.shifts || site.shifts.length === 0) return null;
+    // If guard has an explicit currentShiftId, prefer that
+    if (guard.currentShiftId) {
+      const s = site.shifts.find(sh => sh.id === guard.currentShiftId);
+      if (s) return s;
+    }
+    // Otherwise, try to find a shift that matches current local time and day
+    const now = new Date();
+    const day = now.getDay();
+    for (const sh of site.shifts) {
+      if (!sh.daysOfWeek.includes(day)) continue;
+      const [shH, shM] = sh.startTime.split(':').map(Number);
+      const [ehH, ehM] = sh.endTime.split(':').map(Number);
+      const start = new Date(now);
+      start.setHours(shH, shM, 0, 0);
+      const end = new Date(now);
+      end.setHours(ehH, ehM, 0, 0);
+      // handle overnight shift
+      const inShift = start <= end ? (now >= start && now <= end) : (now >= start || now <= end);
+      if (inShift) return sh;
+    }
+    // fallback to first shift
+    return site.shifts[0] || null;
+  })();
+
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -46,7 +80,12 @@ const GuardPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant={guard.status} className="capitalize">{guard.status}</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={guard.status} className="capitalize">{guard.status}</Badge>
+              {!hasClockedInToday && (
+                <Badge variant="alert">Missed Check-in</Badge>
+              )}
+            </div>
             <Link to="/guards">
               <Button variant="outline">Back to guards</Button>
             </Link>
@@ -70,6 +109,10 @@ const GuardPage = () => {
                   <div>
                     <p className="text-sm text-muted-foreground">Device</p>
                     <p className="font-medium">Android</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Shift</p>
+                    <p className="font-medium">{shiftInfo ? `${shiftInfo.label || 'Shift'} • ${shiftInfo.startTime} - ${shiftInfo.endTime}` : 'Unassigned'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Last Location</p>

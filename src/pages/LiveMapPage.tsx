@@ -53,7 +53,7 @@ export default function LiveMapPage() {
   }, []);
   const [showSites, setShowSites] = useState(true);
   const [showGuards, setShowGuards] = useState(true);
-  const [showTrails, setShowTrails] = useState(false);
+  const [showTrails, setShowTrails] = useState(true);
   const [selectedGuard, setSelectedGuard] = useState<Guard | null>(null);
   const [messageDialogOpen, setMessageDialogOpen] = useState(false);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
