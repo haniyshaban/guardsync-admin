@@ -22,6 +22,15 @@ export interface Guard {
   lastPinged?: Date;
 }
 
+export interface PatrolCheckpoint {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  order: number;
+}
+
 export interface Site {
   id: string;
   name: string;
@@ -40,6 +49,8 @@ export interface Site {
   assignedGuardShifts?: { guardId: string; shiftId: string }[];
   isActive: boolean;
   createdAt: Date;
+  // Patrol route checkpoints for this site
+  patrolRoute?: PatrolCheckpoint[];
 }
 
 export interface Shift {
