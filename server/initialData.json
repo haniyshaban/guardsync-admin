@@ -9,7 +9,13 @@
       "geofenceType": "radius",
       "assignedGuards": ["guard-1","guard-2","guard-3","guard-4","guard-16","guard-25","guard-29"],
       "isActive": true,
-      "createdAt": "2024-01-15T00:00:00.000Z"
+      "createdAt": "2024-01-15T00:00:00.000Z",
+      "patrolRoute": [
+        { "id": "pp-wf-1", "name": "Main Gate", "latitude": 12.9698, "longitude": 77.7491, "radiusMeters": 15, "order": 1 },
+        { "id": "pp-wf-2", "name": "Parking Area", "latitude": 12.9702, "longitude": 77.7495, "radiusMeters": 15, "order": 2 },
+        { "id": "pp-wf-3", "name": "Building A", "latitude": 12.9705, "longitude": 77.7488, "radiusMeters": 15, "order": 3 },
+        { "id": "pp-wf-4", "name": "Cafeteria", "latitude": 12.9695, "longitude": 77.7485, "radiusMeters": 15, "order": 4 }
+      ]
     },
     {
       "id": "site-2",
@@ -20,7 +26,12 @@
       "geofenceType": "radius",
       "assignedGuards": ["guard-5","guard-6","guard-7","guard-18","guard-19","guard-20","guard-26","guard-30"],
       "isActive": true,
-      "createdAt": "2024-02-01T00:00:00.000Z"
+      "createdAt": "2024-02-01T00:00:00.000Z",
+      "patrolRoute": [
+        { "id": "pp-km-1", "name": "Main Entrance", "latitude": 12.9350, "longitude": 77.6190, "radiusMeters": 15, "order": 1 },
+        { "id": "pp-km-2", "name": "Food Court", "latitude": 12.9355, "longitude": 77.6195, "radiusMeters": 15, "order": 2 },
+        { "id": "pp-km-3", "name": "Parking Basement", "latitude": 12.9345, "longitude": 77.6185, "radiusMeters": 15, "order": 3 }
+      ]
     },
     {
       "id": "site-3",
@@ -31,7 +42,11 @@
       "geofenceType": "radius",
       "assignedGuards": ["guard-8","guard-9","guard-10","guard-21","guard-22","guard-23","guard-27"],
       "isActive": true,
-      "createdAt": "2024-02-10T00:00:00.000Z"
+      "createdAt": "2024-02-10T00:00:00.000Z",
+      "patrolRoute": [
+        { "id": "pp-mg-1", "name": "Reception", "latitude": 12.9759, "longitude": 77.6050, "radiusMeters": 15, "order": 1 },
+        { "id": "pp-mg-2", "name": "Conference Hall", "latitude": 12.9762, "longitude": 77.6055, "radiusMeters": 15, "order": 2 }
+      ]
     },
     {
       "id": "site-4",
@@ -42,7 +57,12 @@
       "geofenceType": "radius",
       "assignedGuards": ["guard-11","guard-12","guard-13","guard-14","guard-15","guard-24","guard-28"],
       "isActive": true,
-      "createdAt": "2024-03-01T00:00:00.000Z"
+      "createdAt": "2024-03-01T00:00:00.000Z",
+      "patrolRoute": [
+        { "id": "pp-ec-1", "name": "Gate 1", "latitude": 12.8390, "longitude": 77.6770, "radiusMeters": 15, "order": 1 },
+        { "id": "pp-ec-2", "name": "Server Room", "latitude": 12.8395, "longitude": 77.6775, "radiusMeters": 15, "order": 2 },
+        { "id": "pp-ec-3", "name": "Gate 2", "latitude": 12.8385, "longitude": 77.6765, "radiusMeters": 15, "order": 3 }
+      ]
     },
     {
       "id": "site-5",
@@ -54,6 +74,24 @@
       "assignedGuards": [],
       "isActive": false,
       "createdAt": "2024-03-15T00:00:00.000Z"
+    },
+    {
+      "id": "hbr-mini-forest",
+      "name": "HBR Mini Forest",
+      "address": "HBR Layout Mini Forest, Bengaluru, Karnataka",
+      "location": { "lat": 13.034754170670407, "lng": 77.62729627104902 },
+      "geofenceRadius": 200,
+      "geofenceType": "radius",
+      "assignedGuards": ["demo-guard-1", "guard-hbr-2", "guard-hbr-3", "guard-hbr-4"],
+      "isActive": true,
+      "createdAt": "2024-04-01T00:00:00.000Z",
+      "patrolRoute": [
+        { "id": "pp-hbr-1", "name": "Main Entrance", "latitude": 13.034754, "longitude": 77.627296, "radiusMeters": 15, "order": 1 },
+        { "id": "pp-hbr-2", "name": "North Trail Start", "latitude": 13.035154, "longitude": 77.627096, "radiusMeters": 15, "order": 2 },
+        { "id": "pp-hbr-3", "name": "Meditation Point", "latitude": 13.035454, "longitude": 77.627796, "radiusMeters": 15, "order": 3 },
+        { "id": "pp-hbr-4", "name": "East Boundary", "latitude": 13.034954, "longitude": 77.628296, "radiusMeters": 15, "order": 4 },
+        { "id": "pp-hbr-5", "name": "South Exit", "latitude": 13.034354, "longitude": 77.627496, "radiusMeters": 15, "order": 5 }
+      ]
     }
   ],
   "guards": [
@@ -86,6 +124,49 @@
     { "id": "guard-27", "name": "Vijay Kumar", "phone": "+91 7000000027", "employeeId": "EMP1027", "siteId": "site-3", "status": "idle", "lastSeen": "2026-01-09T00:00:00.000Z", "location": { "lat": 12.9760, "lng": 77.6050 }, "locationHistory": [{ "lat": 12.9760, "lng": 77.6050, "at": "2026-01-09T00:00:00.000Z" }], "clockedIn": true, "clockInTime": "2026-01-09T00:00:00.000Z", "currentShiftId": null },
     { "id": "guard-28", "name": "Anu Menon", "phone": "+91 7000000028", "employeeId": "EMP1028", "siteId": "site-4", "status": "idle", "lastSeen": "2026-01-09T00:00:00.000Z", "location": { "lat": 12.8390, "lng": 77.6769 }, "locationHistory": [{ "lat": 12.8390, "lng": 77.6769, "at": "2026-01-09T00:00:00.000Z" }], "clockedIn": true, "clockInTime": "2026-01-09T00:00:00.000Z", "currentShiftId": null },
     { "id": "guard-29", "name": "Suresh Nair", "phone": "+91 7000000029", "employeeId": "EMP1029", "siteId": "site-1", "status": "online", "lastSeen": "2026-01-09T00:00:00.000Z", "location": { "lat": 12.9703, "lng": 77.7495 }, "locationHistory": [{ "lat": 12.9703, "lng": 77.7495, "at": "2026-01-09T00:00:00.000Z" }], "clockedIn": true, "clockInTime": "2026-01-09T00:00:00.000Z", "currentShiftId": null },
-    { "id": "guard-30", "name": "Geeta Sharma", "phone": "+91 7000000030", "employeeId": "EMP1030", "siteId": "site-2", "status": "idle", "lastSeen": "2026-01-09T00:00:00.000Z", "location": { "lat": 12.9349, "lng": 77.6192 }, "locationHistory": [{ "lat": 12.9349, "lng": 77.6192, "at": "2026-01-09T00:00:00.000Z" }], "clockedIn": true, "clockInTime": "2026-01-09T00:00:00.000Z", "currentShiftId": null }
+    { "id": "guard-30", "name": "Geeta Sharma", "phone": "+91 7000000030", "employeeId": "EMP1030", "siteId": "site-2", "status": "idle", "lastSeen": "2026-01-09T00:00:00.000Z", "location": { "lat": 12.9349, "lng": 77.6192 }, "locationHistory": [{ "lat": 12.9349, "lng": 77.6192, "at": "2026-01-09T00:00:00.000Z" }], "clockedIn": true, "clockInTime": "2026-01-09T00:00:00.000Z", "currentShiftId": null },
+    
+    { "id": "demo-guard-1", "name": "Rajesh Kumar", "phone": "+91 98765 43210", "email": "rajesh.kumar@guardsync.com", "password": "password123", "employeeId": "GW-2024-0147", "siteId": "hbr-mini-forest", "status": "online", "lastSeen": "2026-01-31T00:00:00.000Z", "location": { "lat": 13.034754, "lng": 77.627296 }, "locationHistory": [], "clockedIn": false, "clockInTime": null, "currentShiftId": null, "address": "42, 2nd Cross, HBR Layout, Bengaluru, Karnataka 560043", "emergencyContact": "+91 98765 00001", "dateOfJoining": "2024-01-15", "dailyRate": 800, "aadharNumber": "234567891234", "panNumber": "ABCDE1234F", "bankAccountNumber": "1234567890123456", "bankIfsc": "SBIN0001234", "bankName": "State Bank of India", "accountHolderName": "Rajesh Kumar", "shiftType": "day", "shiftStartTime": "08:00", "shiftEndTime": "20:00" },
+    { "id": "guard-hbr-2", "name": "Suresh Reddy", "phone": "+91 98765 43211", "email": "suresh.reddy@guardsync.com", "password": "password123", "employeeId": "GW-2024-0148", "siteId": "hbr-mini-forest", "status": "offline", "lastSeen": "2026-01-31T00:00:00.000Z", "location": { "lat": 13.034954, "lng": 77.627496 }, "locationHistory": [], "clockedIn": false, "clockInTime": null, "currentShiftId": null, "address": "15, 5th Main, Kalyan Nagar, Bengaluru, Karnataka 560043", "emergencyContact": "+91 98765 00002", "dateOfJoining": "2024-02-01", "dailyRate": 750, "aadharNumber": "345678912345", "panNumber": "FGHIJ5678K", "bankAccountNumber": "2345678901234567", "bankIfsc": "HDFC0001234", "bankName": "HDFC Bank", "accountHolderName": "Suresh Reddy", "shiftType": "night", "shiftStartTime": "20:00", "shiftEndTime": "08:00" },
+    { "id": "guard-hbr-3", "name": "Mohammed Farhan", "phone": "+91 98765 43212", "email": "farhan.m@guardsync.com", "password": "password123", "employeeId": "GW-2024-0149", "siteId": "hbr-mini-forest", "status": "offline", "lastSeen": "2026-01-31T00:00:00.000Z", "location": { "lat": 13.035154, "lng": 77.627096 }, "locationHistory": [], "clockedIn": false, "clockInTime": null, "currentShiftId": null, "address": "8, 3rd Block, HRBR Layout, Bengaluru, Karnataka 560043", "emergencyContact": "+91 98765 00003", "dateOfJoining": "2024-02-15", "dailyRate": 750, "aadharNumber": "456789123456", "panNumber": "KLMNO9012P", "bankAccountNumber": "3456789012345678", "bankIfsc": "ICIC0001234", "bankName": "ICICI Bank", "accountHolderName": "Mohammed Farhan", "shiftType": "day", "shiftStartTime": "08:00", "shiftEndTime": "20:00" },
+    { "id": "guard-hbr-4", "name": "Venkat Prasad", "phone": "+91 98765 43213", "email": "venkat.p@guardsync.com", "password": "password123", "employeeId": "GW-2024-0150", "siteId": "hbr-mini-forest", "status": "idle", "lastSeen": "2026-01-31T00:00:00.000Z", "location": { "lat": 13.034354, "lng": 77.627796 }, "locationHistory": [], "clockedIn": false, "clockInTime": null, "currentShiftId": null, "address": "23, 1st Cross, Kammanahalli, Bengaluru, Karnataka 560084", "emergencyContact": "+91 98765 00004", "dateOfJoining": "2024-03-01", "dailyRate": 750, "aadharNumber": "567891234567", "panNumber": "QRSTU3456V", "bankAccountNumber": "4567890123456789", "bankIfsc": "UTIB0001234", "bankName": "Axis Bank", "accountHolderName": "Venkat Prasad", "shiftType": "night", "shiftStartTime": "20:00", "shiftEndTime": "08:00" }
+  ],
+  "staff": [
+    {
+      "id": "staff-001",
+      "name": "Rakesh Sharma",
+      "email": "officer@guardsync.com",
+      "password": "password123",
+      "phone": "+91 98765 12345",
+      "employeeId": "GWS-2024-001",
+      "role": "field_officer",
+      "assignedArea": "Bengaluru North",
+      "status": "offline",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "staff-002",
+      "name": "Priya Menon",
+      "email": "priya.menon@guardsync.com",
+      "password": "password123",
+      "phone": "+91 98765 12346",
+      "employeeId": "GWS-2024-002",
+      "role": "field_officer",
+      "assignedArea": "Bengaluru South",
+      "status": "offline",
+      "createdAt": "2024-01-15T00:00:00.000Z"
+    },
+    {
+      "id": "staff-003",
+      "name": "Arun Kumar",
+      "email": "arun.kumar@guardsync.com",
+      "password": "password123",
+      "phone": "+91 98765 12347",
+      "employeeId": "GWS-2024-003",
+      "role": "supervisor",
+      "assignedArea": "Bengaluru Central",
+      "status": "offline",
+      "createdAt": "2024-02-01T00:00:00.000Z"
+    }
   ]
 }

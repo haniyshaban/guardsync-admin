@@ -2,15 +2,18 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { mockSites, mockGuards } from '@/data/mockData';
-import { useEffect, useMemo, useState } from 'react';
+import { Slider } from '@/components/ui/slider';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, GripVertical } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, GripVertical, Search, UserPlus, X, Check, Sun, Moon } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { MapContainer, TileLayer, Marker, Polygon, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Guard } from '@/types';
 
 interface PatrolCheckpoint {
   id: string;
@@ -26,35 +29,68 @@ export default function ManageSitePage() {
   const navigate = useNavigate();
   const siteId = String(id || '');
 
-  const initialSite = useMemo(() => mockSites.find(s => s.id === siteId) || null, [siteId]);
-  const [site, setSite] = useState<any>(initialSite);
-  const [name, setName] = useState(site?.name || '');
-  const [isActive, setIsActive] = useState<boolean>(!!site?.isActive);
-  const [assignedGuardIds, setAssignedGuardIds] = useState<string[]>(site?.assignedGuards?.slice() || []);
-  const [selectedAddGuard, setSelectedAddGuard] = useState<string>('');
-  const [geofenceMode, setGeofenceMode] = useState<'radius' | 'polygon'>(site?.geofenceType || 'radius');
-  const [radiusValue, setRadiusValue] = useState<number>(site?.geofenceRadius || 100);
-  const [polygonText, setPolygonText] = useState<string>(site?.geofencePolygon ? JSON.stringify(site.geofencePolygon, null, 2) : '');
-  const [polygonPoints, setPolygonPoints] = useState<{lat:number;lng:number}[]>(site?.geofencePolygon ? site.geofencePolygon.map((p:any)=>({lat:Number(p.lat), lng:Number(p.lng)})) : []);
+  const [site, setSite] = useState<any>(null);
+  const [name, setName] = useState('');
+  const [isActive, setIsActive] = useState<boolean>(true);
+  const [assignedGuardIds, setAssignedGuardIds] = useState<string[]>([]);
+  const [geofenceMode, setGeofenceMode] = useState<'radius' | 'polygon'>('radius');
+  const [radiusValue, setRadiusValue] = useState<number>(100);
+  const [polygonText, setPolygonText] = useState<string>('');
+  const [polygonPoints, setPolygonPoints] = useState<{lat:number;lng:number}[]>([]);
   
   // Patrol route state
-  const [patrolCheckpoints, setPatrolCheckpoints] = useState<PatrolCheckpoint[]>(site?.patrolRoute || []);
-  const [newCheckpointName, setNewCheckpointName] = useState('');
+  const [patrolCheckpoints, setPatrolCheckpoints] = useState<PatrolCheckpoint[]>([]);
   const [newCheckpointRadius, setNewCheckpointRadius] = useState(15);
   const [patrolEditMode, setPatrolEditMode] = useState(false);
 
+  // Guards state - fetch from API
+  const [allGuards, setAllGuards] = useState<Guard[]>([]);
+  const [isAddGuardDialogOpen, setIsAddGuardDialogOpen] = useState(false);
+  const [guardSearchQuery, setGuardSearchQuery] = useState('');
+  const [selectedGuardsToAdd, setSelectedGuardsToAdd] = useState<string[]>([]);
+  const [shiftFilter, setShiftFilter] = useState<'all' | 'day' | 'night'>('all');
+
+  // Fetch all guards from API
   useEffect(() => {
-    if (!initialSite) return;
-    setSite(initialSite);
-    setName(initialSite.name);
-    setIsActive(!!initialSite.isActive);
-    setAssignedGuardIds(initialSite.assignedGuards?.slice() || []);
-    setGeofenceMode(initialSite.geofenceType || 'radius');
-    setRadiusValue(initialSite.geofenceRadius || 100);
-    setPolygonText(initialSite.geofencePolygon ? JSON.stringify(initialSite.geofencePolygon, null, 2) : '');
-    setPolygonPoints(initialSite.geofencePolygon ? initialSite.geofencePolygon.map((p:any)=>({lat:Number(p.lat), lng:Number(p.lng)})) : []);
-    setPatrolCheckpoints(initialSite.patrolRoute || []);
-  }, [initialSite]);
+    const loadGuards = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/guards');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setAllGuards(data);
+          }
+        }
+      } catch (e) {
+        console.log('Could not load guards from backend', e);
+      }
+    };
+    loadGuards();
+  }, []);
+
+  // Fetch site from API on mount
+  useEffect(() => {
+    const loadSite = async () => {
+      try {
+        const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(siteId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSite(data);
+          setName(data.name);
+          setIsActive(!!data.isActive);
+          setAssignedGuardIds(Array.isArray(data.assignedGuards) ? data.assignedGuards.slice() : []);
+          setGeofenceMode(data.geofenceType || 'radius');
+          setRadiusValue(data.geofenceRadius || 100);
+          setPolygonText(data.geofencePolygon ? JSON.stringify(data.geofencePolygon, null, 2) : '');
+          setPolygonPoints(Array.isArray(data.geofencePolygon) ? data.geofencePolygon.map((p:any)=>({lat:Number(p.lat), lng:Number(p.lng)})) : []);
+          setPatrolCheckpoints(data.patrolRoute || []);
+        }
+      } catch (e) {
+        console.log('Could not load site from backend');
+      }
+    };
+    loadSite();
+  }, [siteId]);
 
   if (!site) {
     return (
@@ -78,13 +114,50 @@ export default function ManageSitePage() {
     );
   }
 
-  const assignedGuards = mockGuards.filter(g => assignedGuardIds.includes(g.id));
-  const availableGuards = mockGuards.filter(g => !assignedGuardIds.includes(g.id));
+  // Use allGuards from API instead of mockGuards
+  const assignedGuards = allGuards.filter(g => assignedGuardIds.includes(g.id));
+  
+  // Filter assigned guards by shift type
+  const filteredAssignedGuards = assignedGuards.filter(g => {
+    if (shiftFilter === 'all') return true;
+    return g.shiftType === shiftFilter;
+  });
+  
+  const availableGuards = allGuards.filter(g => !assignedGuardIds.includes(g.id));
+  
+  // Filter available guards based on search query
+  const filteredAvailableGuards = availableGuards.filter(g => 
+    (g.name?.toLowerCase() || '').includes(guardSearchQuery.toLowerCase()) ||
+    (g.employeeId?.toLowerCase() || '').includes(guardSearchQuery.toLowerCase()) ||
+    (g.phone || '').includes(guardSearchQuery)
+  );
 
-  function saveChanges() {
+  // Toggle guard selection for adding
+  function toggleGuardSelection(guardId: string) {
+    setSelectedGuardsToAdd(prev => 
+      prev.includes(guardId) 
+        ? prev.filter(id => id !== guardId)
+        : [...prev, guardId]
+    );
+  }
+
+  // Add selected guards
+  function addSelectedGuards() {
+    if (selectedGuardsToAdd.length === 0) return;
+    setAssignedGuardIds(prev => [...prev, ...selectedGuardsToAdd]);
+    setSelectedGuardsToAdd([]);
+    setGuardSearchQuery('');
+    setIsAddGuardDialogOpen(false);
+  }
+
+  // Get status badge variant
+  function getStatusVariant(status: string): "online" | "offline" | "idle" | "alert" | "pending" | "secondary" {
+    const validStatuses = ['online', 'offline', 'idle', 'alert', 'pending'];
+    return validStatuses.includes(status) ? status as any : 'secondary';
+  }
+
+  async function saveChanges() {
     try {
-      // update mockSites in-memory
-      const idx = mockSites.findIndex(ms => ms.id === site.id);
       // prepare geofence payload
       const updatedGeofence: any = {};
       updatedGeofence.geofenceType = geofenceMode;
@@ -108,63 +181,103 @@ export default function ManageSitePage() {
         updatedGeofence.geofenceRadius = undefined;
       }
 
-      if (idx >= 0) {
-        mockSites[idx] = { ...mockSites[idx], name, isActive, assignedGuards: assignedGuardIds, patrolRoute: patrolCheckpoints, ...updatedGeofence };
-      } else {
-        mockSites.push({ ...site, name, isActive, assignedGuards: assignedGuardIds, patrolRoute: patrolCheckpoints, ...updatedGeofence });
-      }
+      const updatedSite = {
+        ...site,
+        name,
+        isActive,
+        assignedGuards: assignedGuardIds,
+        patrolRoute: patrolCheckpoints,
+        ...updatedGeofence,
+      };
 
-      // update mockGuards assignments in-memory
-      mockGuards.forEach(g => {
-        if (assignedGuardIds.includes(g.id)) {
-          g.siteId = site.id;
-        } else if (g.siteId === site.id && !assignedGuardIds.includes(g.id)) {
-          g.siteId = null as any;
-        }
+      // Save to API
+      const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedSite),
       });
 
-      // persist sites to localStorage for cross-page visibility
-      try {
-        localStorage.setItem('gw_sites', JSON.stringify(mockSites));
-      } catch (err) {
-        // ignore
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // Fetch the updated site from server
+      const getRes = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`);
+      const savedSite = getRes.ok ? await getRes.json() : updatedSite;
+
+      // update allGuards state with new assignments
+      setAllGuards(prev => prev.map(g => {
+        if (assignedGuardIds.includes(g.id)) {
+          return { ...g, siteId: site.id };
+        } else if (g.siteId === site.id && !assignedGuardIds.includes(g.id)) {
+          return { ...g, siteId: null };
+        }
+        return g;
+      }));
+
+      // Update guards on server
+      for (const guardId of assignedGuardIds) {
+        const guard = allGuards.find(g => g.id === guardId);
+        if (guard) {
+          await fetch(`http://localhost:4000/api/guards/${guardId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...guard, siteId: site.id }),
+          });
+        }
       }
 
       // refresh local `site` state so UI reflects saved values while staying on page
-      const refreshed = mockSites.find(ms => ms.id === site.id);
-      if (refreshed) setSite(refreshed);
+      setSite(savedSite);
 
-      alert('Site saved');
+      alert('Site saved to database');
     } catch (err) {
+      console.error('Failed to save site:', err);
       alert('Failed to save site');
     }
   }
 
-  function removeGuard(guardId: string) {
+  async function removeGuard(guardId: string) {
+    // Remove from local state
     setAssignedGuardIds(prev => prev.filter(id => id !== guardId));
+    
+    // Also update the guard on the server to remove site assignment
+    const guard = allGuards.find(g => g.id === guardId);
+    if (guard) {
+      try {
+        await fetch(`http://localhost:4000/api/guards/${guardId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...guard, siteId: null }),
+        });
+        // Update local state to reflect the change
+        setAllGuards(prev => prev.map(g => 
+          g.id === guardId ? { ...g, siteId: null } : g
+        ));
+      } catch (err) {
+        console.error('Failed to unassign guard from site:', err);
+      }
+    }
   }
 
-  function addGuard() {
-    if (!selectedAddGuard) return;
-    setAssignedGuardIds(prev => [...prev, selectedAddGuard]);
-    setSelectedAddGuard('');
-  }
-
-  function deleteSite() {
+  async function deleteSite() {
     if (!site) return;
     const ok = window.confirm('Delete site "' + site.name + '"? This will remove the site and unassign its guards.');
     if (!ok) return;
     try {
-      const idx = mockSites.findIndex(ms => ms.id === site.id);
-      if (idx >= 0) mockSites.splice(idx, 1);
-      // unassign guards
-      mockGuards.forEach(g => {
-        if (g.siteId === site.id) g.siteId = null as any;
+      // Delete from API
+      const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+        method: 'DELETE',
       });
-      try { localStorage.setItem('gw_sites', JSON.stringify(mockSites)); } catch (e) {}
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // unassign guards in local state
+      setAllGuards(prev => prev.map(g => {
+        if (g.siteId === site.id) return { ...g, siteId: null };
+        return g;
+      }));
       alert('Site deleted');
       navigate('/sites');
     } catch (err) {
+      console.error('Failed to delete site:', err);
       alert('Failed to delete site');
     }
   }
@@ -194,39 +307,134 @@ export default function ManageSitePage() {
                   <div>
                     <label className="text-sm text-muted-foreground">Status</label>
                     <div className="mt-2">
-                      <Button variant={isActive ? 'glow' : 'outline'} size="sm" onClick={() => setIsActive(true)} className="mr-2">Active</Button>
-                      <Button variant={!isActive ? 'outline' : 'ghost'} size="sm" onClick={() => setIsActive(false)}>Inactive</Button>
+                      <Button 
+                        variant={isActive ? 'glow' : 'outline'} 
+                        size="sm" 
+                        onClick={async () => {
+                          setIsActive(true);
+                          // Update immediately on server
+                          try {
+                            await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ ...site, isActive: true }),
+                            });
+                          } catch (e) { console.error(e); }
+                        }} 
+                        className="mr-2"
+                      >
+                        Active
+                      </Button>
+                      <Button 
+                        variant={!isActive ? 'outline' : 'ghost'} 
+                        size="sm" 
+                        onClick={async () => {
+                          setIsActive(false);
+                          // Update immediately on server
+                          try {
+                            await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ ...site, isActive: false }),
+                            });
+                          } catch (e) { console.error(e); }
+                        }}
+                      >
+                        Inactive
+                      </Button>
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-sm text-muted-foreground">Assigned Guards</label>
-                    <div className="mt-2 space-y-2">
-                      {assignedGuards.length === 0 && (
-                        <div className="text-sm text-muted-foreground">No guards assigned</div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm text-muted-foreground">Assigned Guards</label>
+                      <div className="flex items-center gap-2">
+                        {/* Shift Filter */}
+                        <div className="flex items-center gap-1 mr-2">
+                          <Button 
+                            variant={shiftFilter === 'all' ? 'default' : 'ghost'} 
+                            size="sm" 
+                            onClick={() => setShiftFilter('all')}
+                            className="h-7 px-2"
+                          >
+                            All
+                          </Button>
+                          <Button 
+                            variant={shiftFilter === 'day' ? 'default' : 'ghost'} 
+                            size="sm" 
+                            onClick={() => setShiftFilter('day')}
+                            className="h-7 px-2"
+                          >
+                            <Sun className="w-3 h-3 mr-1" />
+                            Day
+                          </Button>
+                          <Button 
+                            variant={shiftFilter === 'night' ? 'default' : 'ghost'} 
+                            size="sm" 
+                            onClick={() => setShiftFilter('night')}
+                            className="h-7 px-2"
+                          >
+                            <Moon className="w-3 h-3 mr-1" />
+                            Night
+                          </Button>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {filteredAssignedGuards.length} assigned
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
+                      {filteredAssignedGuards.length === 0 && (
+                        <div className="text-sm text-muted-foreground text-center py-4 bg-muted/10 rounded-lg">
+                          {shiftFilter === 'all' ? 'No guards assigned to this site' : `No ${shiftFilter} shift guards assigned`}
+                        </div>
                       )}
-                      {assignedGuards.map(g => (
-                        <div key={g.id} className="flex items-center justify-between p-2 rounded bg-muted/20">
-                          <div>
-                            <div className="font-medium">{g.name}</div>
-                            <div className="text-xs text-muted-foreground">{g.employeeId} • {g.phone}</div>
+                      {filteredAssignedGuards.map(g => (
+                        <div key={g.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/20 hover:bg-muted/30 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                              {(g.name || '?').charAt(0)}
+                            </div>
+                            <div>
+                              <div className="font-medium">{g.name || 'Unknown'}</div>
+                              <div className="text-xs text-muted-foreground">{g.employeeId || 'N/A'} • {g.phone || 'N/A'}</div>
+                            </div>
                           </div>
-                          <div>
-                            <Button variant="ghost" size="sm" onClick={() => removeGuard(g.id)}>Remove</Button>
+                          <div className="flex items-center gap-2">
+                            {g.shiftType && (
+                              <Badge variant="outline" className="text-xs">
+                                {g.shiftType === 'day' ? <Sun className="w-3 h-3 mr-1" /> : <Moon className="w-3 h-3 mr-1" />}
+                                {g.shiftType}
+                              </Badge>
+                            )}
+                            <Badge variant={getStatusVariant(g.status)} className="text-xs">
+                              {g.status}
+                            </Badge>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => removeGuard(g.id)}
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
 
-                    <div className="mt-4 flex gap-2 items-center">
-                        <select className="flex-1 p-2 rounded border bg-white text-foreground text-sm" style={{color: '#0f172a'}} value={selectedAddGuard} onChange={(e) => setSelectedAddGuard(e.target.value)}>
-                        <option value="">Select guard to add</option>
-                        {availableGuards.map(g => (
-                          <option key={g.id} value={g.id}>{g.name} — {g.employeeId}</option>
-                        ))}
-                      </select>
-                      <Button onClick={addGuard} disabled={!selectedAddGuard}>Add</Button>
-                    </div>
+                    <Button 
+                      onClick={() => {
+                        setSelectedGuardsToAdd([]);
+                        setGuardSearchQuery('');
+                        setIsAddGuardDialogOpen(true);
+                      }} 
+                      variant="outline" 
+                      className="mt-4 w-full"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Add Guard to Site
+                    </Button>
                   </div>
 
                   {/* Patrol Route Editor */}
@@ -243,33 +451,43 @@ export default function ManageSitePage() {
                     </div>
 
                     {patrolEditMode && (
-                      <div className="mb-4 p-3 bg-muted/20 rounded-lg">
-                        <div className="text-xs text-muted-foreground mb-2">Click on the map below to add checkpoints, or enter manually:</div>
-                        <div className="flex gap-2 items-end">
-                          <div className="flex-1">
-                            <label className="text-xs text-muted-foreground">Name</label>
-                            <Input
-                              value={newCheckpointName}
-                              onChange={(e) => setNewCheckpointName(e.target.value)}
-                              placeholder="e.g., Main Gate"
-                              className="mt-1"
-                            />
-                          </div>
-                          <div className="w-24">
-                            <label className="text-xs text-muted-foreground">Radius (m)</label>
-                            <Input
-                              type="number"
-                              value={newCheckpointRadius}
-                              onChange={(e) => setNewCheckpointRadius(Number(e.target.value))}
-                              className="mt-1"
-                            />
-                          </div>
-                        </div>
+                      <div className="mb-2 text-xs text-muted-foreground">
+                        Click on the map below to add checkpoints. Each click adds a numbered checkpoint.
                       </div>
                     )}
 
                     {/* Patrol Route Map */}
-                    <div className="w-full h-48 rounded-md overflow-hidden border mb-4">
+                    <div className="w-full h-96 rounded-md overflow-hidden border relative">
+                      {/* Radius input - top right */}
+                      {patrolEditMode && (
+                        <div className="absolute top-2 right-2 z-[1000] bg-background/95 backdrop-blur-sm p-2 rounded-lg shadow-lg border">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-muted-foreground whitespace-nowrap">Radius (m)</label>
+                            <Input
+                              type="number"
+                              value={newCheckpointRadius}
+                              onChange={(e) => setNewCheckpointRadius(Number(e.target.value))}
+                              className="w-20 h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Clear all button - bottom right */}
+                      {patrolEditMode && patrolCheckpoints.length > 0 && (
+                        <div className="absolute bottom-2 right-2 z-[1000]">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setPatrolCheckpoints([])}
+                            className="shadow-lg"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Clear All
+                          </Button>
+                        </div>
+                      )}
+                      
                       <MapContainer
                         center={[site.location.lat || 12.97, site.location.lng || 77.59]}
                         zoom={16}
@@ -304,68 +522,67 @@ export default function ManageSitePage() {
                             onAdd={(lat, lng) => {
                               const newCp: PatrolCheckpoint = {
                                 id: `pp-${Date.now()}`,
-                                name: newCheckpointName || `Checkpoint ${patrolCheckpoints.length + 1}`,
+                                name: `Checkpoint ${patrolCheckpoints.length + 1}`,
                                 latitude: lat,
                                 longitude: lng,
                                 radiusMeters: newCheckpointRadius,
                                 order: patrolCheckpoints.length + 1,
                               };
                               setPatrolCheckpoints([...patrolCheckpoints, newCp]);
-                              setNewCheckpointName('');
                             }}
                           />
                         )}
                       </MapContainer>
                     </div>
-
-                    {/* Checkpoint list */}
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {patrolCheckpoints.length === 0 && (
-                        <div className="text-sm text-muted-foreground text-center py-4">
-                          No patrol checkpoints defined. {patrolEditMode ? 'Click on the map to add.' : 'Enable edit mode to add checkpoints.'}
+                    
+                    {/* Checkpoint Tags */}
+                    {patrolCheckpoints.length > 0 && (
+                      <div className="mt-3 p-3 bg-muted/20 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-muted-foreground font-medium">
+                            {patrolCheckpoints.length} Checkpoint{patrolCheckpoints.length !== 1 ? 's' : ''}
+                          </span>
                         </div>
-                      )}
-                      {patrolCheckpoints.map((cp, idx) => (
-                        <div key={cp.id} className="flex items-center gap-2 p-2 bg-muted/10 rounded">
-                          <GripVertical className="w-4 h-4 text-muted-foreground" />
-                          <div className="w-6 h-6 rounded-full bg-green-500 text-white text-xs flex items-center justify-center font-bold">
-                            {cp.order}
-                          </div>
-                          <div className="flex-1">
-                            {patrolEditMode ? (
-                              <Input
-                                value={cp.name}
-                                onChange={(e) => {
-                                  const updated = [...patrolCheckpoints];
-                                  updated[idx] = { ...cp, name: e.target.value };
-                                  setPatrolCheckpoints(updated);
-                                }}
-                                className="h-7 text-sm"
-                              />
-                            ) : (
-                              <span className="text-sm font-medium">{cp.name}</span>
-                            )}
-                            <div className="text-xs text-muted-foreground">
-                              {cp.latitude.toFixed(5)}, {cp.longitude.toFixed(5)} • {cp.radiusMeters}m radius
-                            </div>
-                          </div>
-                          {patrolEditMode && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                const updated = patrolCheckpoints.filter((_, i) => i !== idx);
-                                // Re-order remaining checkpoints
-                                updated.forEach((c, i) => c.order = i + 1);
-                                setPatrolCheckpoints(updated);
-                              }}
+                        <div className="flex flex-wrap gap-2">
+                          {patrolCheckpoints.map((cp) => (
+                            <div
+                              key={cp.id}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-full text-sm"
                             >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </Button>
-                          )}
+                              <span className="w-5 h-5 rounded-full bg-green-500 text-white text-xs flex items-center justify-center font-bold">
+                                {cp.order}
+                              </span>
+                              <span className="text-muted-foreground text-xs ml-1">
+                                {cp.radiusMeters}m
+                              </span>
+                              {patrolEditMode && (
+                                <button
+                                  onClick={() => {
+                                    // Remove the checkpoint and renumber
+                                    const filtered = patrolCheckpoints.filter(c => c.id !== cp.id);
+                                    const renumbered = filtered.map((c, index) => ({
+                                      ...c,
+                                      order: index + 1,
+                                      name: `Checkpoint ${index + 1}`
+                                    }));
+                                    setPatrolCheckpoints(renumbered);
+                                  }}
+                                  className="ml-1 w-4 h-4 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-500 transition-colors"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    )}
+                    
+                    {patrolCheckpoints.length === 0 && !patrolEditMode && (
+                      <div className="text-sm text-muted-foreground text-center py-2">
+                        No patrol checkpoints defined. Enable edit mode to add checkpoints.
+                      </div>
+                    )}
                   </div>
                   
                 </div>
@@ -393,9 +610,42 @@ export default function ManageSitePage() {
                   </RadioGroup>
 
                   {geofenceMode === 'radius' && (
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-2">Radius (meters)</div>
-                      <Input value={radiusValue} onChange={(e) => setRadiusValue(Number(e.target.value))} type="number" />
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">Radius</div>
+                        <div className="text-sm font-semibold bg-primary/10 px-3 py-1 rounded-full">
+                          {radiusValue}m
+                        </div>
+                      </div>
+                      <Slider
+                        value={[radiusValue]}
+                        onValueChange={(value) => setRadiusValue(value[0])}
+                        min={50}
+                        max={1000}
+                        step={10}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>50m</span>
+                        <span>1000m</span>
+                      </div>
+                      
+                      {/* Live preview map */}
+                      <div className="w-full h-64 rounded-md overflow-hidden border mt-4">
+                        <MapContainer
+                          center={[site.location.lat || 12.97, site.location.lng || 77.59]}
+                          zoom={15}
+                          className="w-full h-full"
+                        >
+                          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                          <Marker position={[site.location.lat, site.location.lng]} />
+                          <Circle
+                            center={[site.location.lat, site.location.lng]}
+                            radius={radiusValue}
+                            pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.2 }}
+                          />
+                        </MapContainer>
+                      </div>
                     </div>
                   )}
 
@@ -409,7 +659,7 @@ export default function ManageSitePage() {
                             {polygonPoints.map((p, i) => (
                               <Marker key={i} position={[p.lat, p.lng]} />
                             ))}
-                            {mockGuards.filter(g => g.siteId === site.id && g.location).map(g => (
+                            {allGuards.filter(g => g.siteId === site.id && g.location).map(g => (
                               <Marker key={g.id} position={[g.location!.lat, g.location!.lng]} icon={L.divIcon({
                                 className: 'small-guard-marker',
                                 html: `<div style="width:10px;height:10px;border-radius:50%;background:${g.status==='online'? '#22c55e': g.status==='idle'? '#f59e0b': g.status==='alert'? '#dc2626':'#ef4444'};border:2px solid white"></div>`,
@@ -423,9 +673,8 @@ export default function ManageSitePage() {
                       <div className="flex gap-2 mt-2">
                         <Button variant="outline" size="sm" onClick={() => setPolygonPoints(prev => prev.slice(0,-1))}>Undo</Button>
                         <Button variant="ghost" size="sm" onClick={() => setPolygonPoints([])}>Clear</Button>
-                        <div className="text-xs text-muted-foreground ml-auto">You can also paste JSON below</div>
+                        <div className="text-xs text-muted-foreground ml-auto">{polygonPoints.length} point{polygonPoints.length !== 1 ? 's' : ''}</div>
                       </div>
-                      <Textarea value={polygonText} onChange={(e) => setPolygonText(e.target.value)} rows={3} className="mt-2" />
                     </div>
                   )}
                   
@@ -462,6 +711,122 @@ export default function ManageSitePage() {
           </Card>
         </div>
       </div>
+
+      {/* Add Guard Dialog */}
+      <Dialog open={isAddGuardDialogOpen} onOpenChange={setIsAddGuardDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" />
+              Add Guards to Site
+            </DialogTitle>
+            <DialogDescription>
+              Search and select guards to add to {site.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, ID, or phone..."
+                value={guardSearchQuery}
+                onChange={(e) => setGuardSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Available Guards List */}
+            <div className="border rounded-lg max-h-80 overflow-y-auto">
+              {filteredAvailableGuards.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  {guardSearchQuery ? (
+                    <div>
+                      <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No guards found matching "{guardSearchQuery}"</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <UserPlus className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">All guards are already assigned</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {filteredAvailableGuards.map(g => {
+                    const isSelected = selectedGuardsToAdd.includes(g.id);
+                    return (
+                      <div
+                        key={g.id}
+                        onClick={() => toggleGuardSelection(g.id)}
+                        className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${
+                          isSelected 
+                            ? 'bg-primary/10 border-l-4 border-l-primary' 
+                            : 'hover:bg-muted/50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
+                            isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                          }`}>
+                            {isSelected ? <Check className="w-5 h-5" /> : (g.name || '?').charAt(0)}
+                          </div>
+                          <div>
+                            <div className="font-medium">{g.name || 'Unknown'}</div>
+                            <div className="text-xs text-muted-foreground">{g.employeeId || 'N/A'} • {g.phone || 'N/A'}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={getStatusVariant(g.status)} className="text-xs">
+                            {g.status}
+                          </Badge>
+                          {g.siteId && (
+                            <Badge variant="secondary" className="text-xs">
+                              Assigned
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Selection Summary */}
+            {selectedGuardsToAdd.length > 0 && (
+              <div className="flex items-center justify-between p-2 bg-primary/10 rounded-lg">
+                <span className="text-sm font-medium">
+                  {selectedGuardsToAdd.length} guard{selectedGuardsToAdd.length > 1 ? 's' : ''} selected
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setSelectedGuardsToAdd([])}
+                  className="text-xs"
+                >
+                  Clear selection
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddGuardDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={addSelectedGuards}
+              disabled={selectedGuardsToAdd.length === 0}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add {selectedGuardsToAdd.length > 0 ? `(${selectedGuardsToAdd.length})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

@@ -1,4 +1,4 @@
-export type GuardStatus = 'online' | 'offline' | 'idle' | 'alert' | 'panic';
+export type GuardStatus = 'online' | 'offline' | 'idle' | 'alert' | 'panic' | 'pending';
 
 export interface Guard {
   id: string;
@@ -17,6 +17,10 @@ export interface Guard {
   clockInTime?: Date;
   // assigned/current shift id (optional)
   currentShiftId?: string;
+  // Shift type: day or night
+  shiftType?: 'day' | 'night';
+  shiftStartTime?: string;
+  shiftEndTime?: string;
   // Optional movement breadcrumb history (most recent last)
   locationHistory?: { lat: number; lng: number; at?: Date }[];
   lastPinged?: Date;

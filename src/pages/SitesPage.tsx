@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
-import { mockSites, mockGuards } from '@/data/mockData';
+import { Guard, Site } from '@/types';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet';
@@ -23,10 +23,11 @@ import {
 import { Link } from 'react-router-dom';
 
 export default function SitesPage() {
-  const [sites, setSites] = useState(mockSites);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [guards, setGuards] = useState<Guard[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [activeSite, setActiveSite] = useState<typeof mockSites[0] | null>(null);
+  const [activeSite, setActiveSite] = useState<Site | null>(null);
   const [geofenceMode, setGeofenceMode] = useState<'radius' | 'polygon'>('radius');
   const [radiusValue, setRadiusValue] = useState<number>(100);
   const [polygonText, setPolygonText] = useState<string>('');
@@ -34,7 +35,25 @@ export default function SitesPage() {
 
   const { toast } = useToast();
 
-  // Load persisted sites from backend on mount (if available)
+  // Load guards from API
+  useEffect(() => {
+    const loadGuards = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/guards');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setGuards(data);
+          }
+        }
+      } catch (e) {
+        console.log('Could not load guards from backend', e);
+      }
+    };
+    loadGuards();
+  }, []);
+
+  // Load sites from backend on mount
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -50,43 +69,11 @@ export default function SitesPage() {
             createdAt: s.createdAt ? new Date(s.createdAt) : new Date(),
             geofenceRadius: s.geofenceRadius ? Number(s.geofenceRadius) : 0,
           }));
-          setSites(rev as any);
-          // sync in-memory mockSites so other parts of app continue to read a consistent source
-          try {
-            mockSites.length = 0;
-            rev.forEach((r: any) => mockSites.push(r));
-          } catch (e) {
-            // ignore
-          }
-        } else {
-          // fallback to previous localStorage fallback if backend returns unexpected shape
-          try {
-            const raw = localStorage.getItem('gw_sites');
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed)) {
-                setSites(parsed as any);
-                mockSites.length = 0;
-                (parsed as any).forEach((p: any) => mockSites.push(p));
-              }
-            }
-          } catch (e) {}
+          setSites(rev as Site[]);
         }
       } catch (err) {
-        // If backend is not reachable, fall back to localStorage
-        try {
-          const raw = localStorage.getItem('gw_sites');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-              setSites(parsed as any);
-              mockSites.length = 0;
-              (parsed as any).forEach((p: any) => mockSites.push(p));
-            }
-          }
-        } catch (e) {}
-        // notify user of connection error
-        toast({ title: 'Could not load sites from server', description: 'Using local cached sites.' });
+        // If backend is not reachable, show error
+        toast({ title: 'Could not load sites from server', description: 'Please check if the API is running.' });
       }
     }
     load();
@@ -99,11 +86,11 @@ export default function SitesPage() {
   );
 
   const getGuardCount = (siteId: string) => {
-    return mockGuards.filter(g => g.siteId === siteId).length;
+    return guards.filter(g => g.siteId === siteId).length;
   };
 
   const getActiveGuardCount = (siteId: string) => {
-    return mockGuards.filter(g => g.siteId === siteId && (g.status === 'online' || g.status === 'idle')).length;
+    return guards.filter(g => g.siteId === siteId && (g.status === 'online' || g.status === 'idle')).length;
   };
 
   return (
@@ -131,15 +118,10 @@ export default function SitesPage() {
                 try {
                   const parsed = JSON.parse(String(reader.result || ''));
                   if (Array.isArray(parsed)) {
-                    setSites(parsed as any);
-                    localStorage.setItem('gw_sites', JSON.stringify(parsed));
-                    // update mockSites in-memory
-                    try { mockSites.length = 0; (parsed as any).forEach((p: any) => mockSites.push(p)); } catch(e){}
+                    setSites(parsed as Site[]);
                     alert('Imported sites successfully');
                   } else if (parsed && Array.isArray(parsed.sites)) {
-                    setSites(parsed.sites as any);
-                    localStorage.setItem('gw_sites', JSON.stringify(parsed.sites));
-                    try { mockSites.length = 0; (parsed.sites as any).forEach((p: any) => mockSites.push(p)); } catch(e){}
+                    setSites(parsed.sites as Site[]);
                     alert('Imported sites successfully');
                   } else {
                     alert('Invalid JSON format');
@@ -215,7 +197,7 @@ export default function SitesPage() {
                         <Marker key={i} position={[p.lat, p.lng]} />
                       ))}
                       {/* show guards assigned to this site as small dots */}
-                      {mockGuards.filter(g => g.siteId === activeSite?.id && g.location).map(g => (
+                      {guards.filter(g => g.siteId === activeSite?.id && g.location).map(g => (
                         <Marker key={g.id} position={[g.location!.lat, g.location!.lng]} icon={L.divIcon({
                           className: 'small-guard-marker',
                           html: `<div style="width:10px;height:10px;border-radius:50%;background:${g.status==='online'? '#22c55e': g.status==='idle'? '#f59e0b': g.status==='alert'? '#dc2626':'#ef4444'};border:2px solid white"></div>`,
@@ -283,10 +265,9 @@ export default function SitesPage() {
                       savedSite = putResult;
                     }
                     const merged = savedSite ? { ...activeSite, ...savedSite } : { ...activeSite };
-                    // update local UI and in-memory cache
+                    // update local UI
                     const updated = sites.map(s => s.id === activeSite.id ? merged : s);
-                    setSites(updated as any);
-                    try { mockSites.length = 0; (updated as any).forEach((u:any) => mockSites.push(u)); } catch (e) {}
+                    setSites(updated as Site[]);
                     toast({ title: 'Site saved', description: 'Geofence saved to server.' });
                   } catch (err) {
                     toast({ title: 'Failed to save site', description: 'Could not connect to backend.' });

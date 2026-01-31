@@ -3,10 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { mockGuards, mockSites } from '@/data/mockData';
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Guard } from '@/types';
+import { Guard, Site } from '@/types';
 import { 
   Users, 
   Search, 
@@ -19,49 +18,62 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 
 export default function GuardsPage() {
-  const [guards, setGuards] = useState(mockGuards);
+  const [guards, setGuards] = useState<Guard[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<Guard['status'] | 'all' | 'unassigned'>('all');
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     const param = searchParams.get('status');
-    const allowed = ['all', 'online', 'idle', 'offline', 'alert', 'panic', 'unassigned'];
+    const allowed = ['all', 'online', 'idle', 'offline', 'alert', 'panic', 'pending', 'unassigned'];
     if (param && allowed.includes(param)) {
       setStatusFilter(param as Guard['status'] | 'all' | 'unassigned');
     }
   }, [searchParams]);
 
+  // Fetch guards from API
   useEffect(() => {
-    const onUpdate = () => setGuards([...mockGuards]);
-    window.addEventListener('guards-updated', onUpdate as EventListener);
-    return () => window.removeEventListener('guards-updated', onUpdate as EventListener);
-  }, []);
-
-  // fetch guards from backend and sync into in-memory mockGuards
-  useEffect(() => {
-    const load = async () => {
+    const loadGuards = async () => {
       try {
         const res = await fetch('http://localhost:4000/api/guards');
-        if (!res.ok) throw new Error('Failed to fetch guards');
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          mockGuards.length = 0;
-          data.forEach((g: any) => mockGuards.push(g));
-          setGuards([...mockGuards]);
-          try { window.dispatchEvent(new CustomEvent('guards-updated')); } catch (e) {}
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setGuards(data);
+          }
         }
       } catch (e) {
         console.log('Could not load guards from backend', e);
       }
     };
-    load();
+    loadGuards();
+    const interval = setInterval(loadGuards, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch sites from API
+  useEffect(() => {
+    const loadSites = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/sites');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setSites(data);
+          }
+        }
+      } catch (e) {
+        console.log('Could not load sites from backend', e);
+      }
+    };
+    loadSites();
   }, []);
 
   const filteredGuards = guards.filter(guard => {
-    const matchesSearch = guard.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guard.employeeId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      guard.phone.includes(searchQuery);
+    const matchesSearch = (guard.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (guard.employeeId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (guard.phone || '').includes(searchQuery);
     let matchesStatus = false;
     if (statusFilter === 'all') matchesStatus = true;
     else if (statusFilter === 'unassigned') matchesStatus = guard.siteId === null;
@@ -71,11 +83,11 @@ export default function GuardsPage() {
 
   const getSiteName = (siteId: string | null) => {
     if (!siteId) return 'Unassigned';
-    const site = mockSites.find(s => s.id === siteId);
+    const site = sites.find(s => s.id === siteId);
     return site?.name || 'Unknown Site';
   };
 
-  const getStatusVariant = (status: Guard['status']): "online" | "offline" | "idle" | "alert" | "secondary" => {
+  const getStatusVariant = (status: Guard['status']): "online" | "offline" | "idle" | "alert" | "pending" | "secondary" => {
     return status;
   };
 
@@ -124,7 +136,7 @@ export default function GuardsPage() {
               <div className="flex items-center gap-2 overflow-auto">
                 <Filter className="w-4 h-4 text-muted-foreground" />
                 <div className="flex gap-1">
-                  {(['all', 'online', 'idle', 'offline', 'alert', 'panic', 'unassigned'] as const).map((status) => (
+                  {(['all', 'online', 'idle', 'offline', 'alert', 'panic', 'pending', 'unassigned'] as const).map((status) => (
                     <Button
                       key={status}
                       variant={statusFilter === status ? 'default' : 'ghost'}
@@ -169,18 +181,18 @@ export default function GuardsPage() {
                       style={{ animationDelay: `${index * 20}ms` }}
                     >
                       <td className="p-4">
-                        <div className="flex items-center gap-3">
+                        <Link to={`/guards/${guard.id}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                           <div className="relative">
                             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold">
-                              {guard.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                              {(guard.name || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
                             </div>
                             <div className={`absolute -bottom-0.5 -right-0.5 status-dot border-2 border-background status-${guard.status}`} />
                           </div>
                           <div>
-                            <p className="font-medium text-sm">{guard.name}</p>
-                            <p className="text-xs text-muted-foreground font-mono">{guard.employeeId}</p>
+                            <p className="font-medium text-sm text-primary hover:underline">{guard.name || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{guard.employeeId || '—'}</p>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td className="p-4">
                         <Badge variant={getStatusVariant(guard.status)} className="capitalize">
@@ -196,7 +208,7 @@ export default function GuardsPage() {
                       <td className="p-4">
                         <div className="text-sm text-muted-foreground">
                           {(() => {
-                            const site = mockSites.find(s => s.id === guard.siteId);
+                            const site = sites.find(s => s.id === guard.siteId);
                             if (!site) return '—';
                             const shifts = (site as any).shifts as any[] | undefined;
                             if (!shifts || shifts.length === 0) return '—';
@@ -207,7 +219,7 @@ export default function GuardsPage() {
                       </td>
                       <td className="p-4">
                         <div className="text-sm text-muted-foreground">
-                          {formatDistanceToNow(guard.lastSeen, { addSuffix: true })}
+                          {guard.lastSeen ? formatDistanceToNow(new Date(guard.lastSeen), { addSuffix: true }) : 'Never'}
                         </div>
                       </td>
                       <td className="p-4">

@@ -1,0 +1,25 @@
+# Development Dockerfile for Vite apps
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy config files
+COPY vite.config.ts tsconfig*.json tailwind.config.ts postcss.config.js ./
+COPY components.json ./
+
+# Copy source (will be overwritten by volume mount)
+COPY src ./src
+COPY public ./public
+COPY index.html ./
+
+# Expose Vite dev server port
+EXPOSE 8080
+
+# Start Vite dev server with host binding for Docker
+CMD ["npx", "vite", "--host", "0.0.0.0", "--port", "8080"]

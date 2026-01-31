@@ -1,12 +1,12 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { useSidebar } from './SidebarContext';
 import { useNavigate } from 'react-router-dom';
 import { Menu, ArrowLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import EmergencyOverlay from './EmergencyOverlay';
-import { mockGuards } from '@/data/mockData';
 import CommandSearch from '@/components/ui/CommandSearch';
+import { Guard } from '@/types';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -14,13 +14,32 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [guards, setGuards] = useState<Guard[]>([]);
   const { collapsed: sidebarCollapsed } = useSidebar();
   const navigate = useNavigate();
+
+  // Fetch guards for emergency overlay
+  useEffect(() => {
+    const loadGuards = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/guards');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) setGuards(data);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    loadGuards();
+    const interval = setInterval(loadGuards, 10000); // Poll every 10s for panic alerts
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background bg-grid">
       {/* Global emergency overlay (shows whenever any guard is in 'panic') */}
-      <EmergencyOverlay guards={mockGuards} />
+      <EmergencyOverlay guards={guards} />
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       {/* Mobile top bar */}

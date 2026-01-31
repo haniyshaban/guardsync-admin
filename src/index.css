@@ -56,6 +56,7 @@
     --status-idle: 38 92% 50%;
     --status-alert: 0 84% 60%;
     --status-panic: 0 85% 50%;
+    --status-pending: 38 92% 50%;
 
     /* Sidebar */
     --sidebar-background: 222 47% 5%;
@@ -159,6 +160,11 @@
     @apply bg-[hsl(var(--status-panic))];
     box-shadow: 0 0 14px hsl(var(--status-panic) / 0.85);
     animation: panic-pulse 0.7s ease-in-out infinite;
+  }
+
+  .status-pending {
+    @apply bg-amber-500;
+    animation: pulse 2s ease-in-out infinite;
   }
 
   /* Card variants */

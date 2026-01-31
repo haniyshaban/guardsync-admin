@@ -6,9 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SystemConfig } from '@/types';
-import { defaultSystemConfig, resetDemoData } from '@/data/mockData';
 import { 
   Settings, 
   Sparkles, 
@@ -20,70 +19,90 @@ import {
   RotateCcw,
   AlertCircle,
   CheckCircle2,
-  Crown
+  Crown,
+  Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+// Default config values
+const defaultSystemConfig: SystemConfig = {
+  geofenceEnabled: true,
+  facialRecEnabled: true,
+  autoClockOutMinutes: 480,
+  offlineToleranceMinutes: 15,
+  panicAlertEnabled: true,
+};
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<SystemConfig>(defaultSystemConfig);
   const [hasChanges, setHasChanges] = useState(false);
-  const [demoMode, setDemoMode] = useState<boolean>(() => {
-    try { return window.localStorage.getItem('demo_mode') === '1'; } catch (e) { return false; }
-  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+
+  // Load config from API on mount
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          setConfig(prev => ({ ...prev, ...data }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch config:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const updateConfig = <K extends keyof SystemConfig>(key: K, value: SystemConfig[K]) => {
     setConfig(prev => ({ ...prev, [key]: value }));
     setHasChanges(true);
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Settings saved",
-      description: "Your configuration has been updated successfully.",
-    });
-    setHasChanges(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const res = await fetch('http://localhost:4000/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      
+      if (!res.ok) throw new Error('Failed to save');
+      
+      toast({
+        title: "Settings saved",
+        description: "Your configuration has been saved to the database.",
+      });
+      setHasChanges(false);
+    } catch (err) {
+      console.error('Save failed:', err);
+      toast({
+        title: "Save failed",
+        description: "Could not save settings to the server.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setConfig(defaultSystemConfig);
-    setHasChanges(false);
+    setHasChanges(true);
     toast({
       title: "Settings reset",
-      description: "Configuration has been restored to defaults.",
+      description: "Configuration reset to defaults. Click Save to persist.",
     });
   };
 
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6 max-w-4xl">
-        {/* Demo Mode toggle for simulation */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle>Demo Mode</CardTitle>
-                  <CardDescription>Simulate guard movement on the map for demo purposes</CardDescription>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={() => { resetDemoData(); try { window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: window.localStorage.getItem('demo_mode') === '1' })); } catch(e){}; toast({ title: 'Demo data reset', description: 'Guards restored to starting positions.' }); }} className="mr-2">Reset Demo Data</Button>
-              <Switch
-                checked={demoMode}
-                onCheckedChange={(v) => {
-                  setDemoMode(Boolean(v));
-                  try { window.localStorage.setItem('demo_mode', v ? '1' : '0'); } catch (e) {}
-                  try { window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: Boolean(v) })); } catch (e) {}
-                }}
-              />
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -99,13 +118,17 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-            <Button variant="outline" onClick={handleReset} disabled={!hasChanges} className="w-full sm:w-auto">
+            <Button variant="outline" onClick={handleReset} disabled={!hasChanges || isSaving} className="w-full sm:w-auto">
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset
             </Button>
-            <Button variant="glow" onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">
-              <Save className="w-4 h-4 mr-2" />
-              Save Changes
+            <Button variant="glow" onClick={handleSave} disabled={!hasChanges || isSaving} className="w-full sm:w-auto">
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </div>

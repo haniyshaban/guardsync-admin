@@ -19,6 +19,7 @@ const badgeVariants = cva(
         offline: "border-transparent bg-status-offline/20 text-status-offline",
         idle: "border-transparent bg-status-idle/20 text-status-idle",
         alert: "border-transparent bg-status-alert/20 text-status-alert animate-pulse",
+        pending: "border-transparent bg-amber-500/20 text-amber-500",
       },
     },
     defaultVariants: {

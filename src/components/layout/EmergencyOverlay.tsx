@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Guard } from '@/types';
 import { Button } from '@/components/ui/button';
-import { mockGuards } from '@/data/mockData';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 import { useSidebar } from './SidebarContext';
 
@@ -10,9 +9,6 @@ interface EmergencyOverlayProps {
 }
 
 export function EmergencyOverlay({ guards = [] }: EmergencyOverlayProps) {
-  const panicGuards = guards.filter(g => g.status === 'panic');
-  if (!panicGuards.length) return null;
-
   const { collapsed } = useSidebar();
   const [isDesktop, setIsDesktop] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth >= 640 : true);
 
@@ -21,6 +17,11 @@ export function EmergencyOverlay({ guards = [] }: EmergencyOverlayProps) {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  const panicGuards = guards.filter(g => g.status === 'panic');
+  
+  // Early return AFTER all hooks
+  if (!panicGuards.length) return null;
 
   const leftOffset = isDesktop ? (collapsed ? '72px' : '16rem') : '0px';
   const first = panicGuards[0];
@@ -32,26 +33,24 @@ export function EmergencyOverlay({ guards = [] }: EmergencyOverlayProps) {
     alert(`Dispatching help for ${guardId || 'guards in panic'}`);
   };
 
-  const handleDismiss = () => {
-    // Mark demo panic dismissed so it won't be re-added by mockData
+  const handleDismiss = async () => {
+    // Update panic guards to online status via API
     try {
-      if (typeof window !== 'undefined') window.localStorage.setItem('demo_panic_dismissed', '1');
-    } catch (e) {}
-
-    // Clear panic status for demo guards and reload to reflect changes across pages
-    const changed: string[] = [];
-    mockGuards.forEach(g => {
-      if (g.status === 'panic') {
-        g.status = 'online';
-        g.lastPinged = new Date();
-        changed.push(g.id);
+      for (const g of panicGuards) {
+        await fetch(`http://localhost:4000/api/guards/${g.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'online', lastSeen: new Date().toISOString() }),
+        });
       }
-    });
-    sonnerToast.success(`Cleared panic for ${changed.length} guard(s)`);
-    // small delay so toast is visible, then reload to update local pages
-    setTimeout(() => {
-      try { window.location.reload(); } catch (e) { /* ignore */ }
-    }, 700);
+      sonnerToast.success(`Cleared panic for ${panicGuards.length} guard(s)`);
+      // Reload to reflect changes
+      setTimeout(() => {
+        try { window.location.reload(); } catch (e) { /* ignore */ }
+      }, 700);
+    } catch (e) {
+      sonnerToast.error('Failed to clear panic status');
+    }
   };
 
   return (

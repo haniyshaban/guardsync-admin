@@ -5,7 +5,7 @@ import { LiveMap } from '@/components/map/LiveMap';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { mockGuards, mockSites, calculateDashboardStats, mockAttendanceLogs } from '@/data/mockData';
+import { Guard, Site, AttendanceLog } from '@/types';
 import L from 'leaflet';
 import { 
   Users, 
@@ -23,33 +23,91 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 
 const Index = () => {
-  const [guards, setGuards] = useState(mockGuards);
-  const [sites] = useState(mockSites);
+  const [guards, setGuards] = useState<Guard[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    avgClockInTime: '--:--',
+    geofenceCompliance: 0,
+    clockedInToday: 0,
+    totalGuards: 0
+  });
 
-  // update guards when simulation or other code mutates mockGuards
+  // Fetch dashboard stats from API
   useEffect(() => {
-    const onUpdate = () => setGuards([...mockGuards]);
-    window.addEventListener('guards-updated', onUpdate as EventListener);
-    return () => window.removeEventListener('guards-updated', onUpdate as EventListener);
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/stats/dashboard');
+        if (res.ok) {
+          const data = await res.json();
+          setDashboardStats(data);
+        }
+      } catch (e) {
+        console.log('Could not fetch dashboard stats', e);
+      }
+    };
+    fetchStats();
+    const interval = setInterval(fetchStats, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
   }, []);
-  // fetch authoritative guards from backend and sync into mockGuards
+
+  // Fetch guards from API
   useEffect(() => {
-    const load = async () => {
+    const loadGuards = async () => {
       try {
         const res = await fetch('http://localhost:4000/api/guards');
-        if (!res.ok) throw new Error('Failed to fetch guards');
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          mockGuards.length = 0;
-          data.forEach((g: any) => mockGuards.push(g));
-          setGuards([...mockGuards]);
-          try { window.dispatchEvent(new CustomEvent('guards-updated')); } catch (e) {}
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setGuards(data);
+          }
         }
       } catch (e) {
         console.log('Could not load guards from backend', e);
       }
     };
-    load();
+    loadGuards();
+    const interval = setInterval(loadGuards, 15000); // Refresh every 15 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch sites from API
+  useEffect(() => {
+    const loadSites = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/sites');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setSites(data);
+          }
+        }
+      } catch (e) {
+        console.log('Could not load sites from backend', e);
+      }
+    };
+    loadSites();
+  }, []);
+
+  // Fetch attendance logs from API
+  useEffect(() => {
+    const loadAttendance = async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const res = await fetch(`http://localhost:4000/api/attendance?date=${today}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setAttendanceLogs(data);
+          }
+        }
+      } catch (e) {
+        console.log('Could not load attendance from backend', e);
+      }
+    };
+    loadAttendance();
+    const interval = setInterval(loadAttendance, 30000);
+    return () => clearInterval(interval);
   }, []);
   const [now, setNow] = useState<Date>(new Date());
 
@@ -58,14 +116,21 @@ const Index = () => {
     return () => clearInterval(t);
   }, []);
   // compute dashboard stats (core counts)
-  const stats = calculateDashboardStats(guards, sites);
+  const stats = {
+    totalGuards: guards.length,
+    activeGuards: guards.filter(g => g.status === 'online').length,
+    offlineGuards: guards.filter(g => g.status === 'offline').length,
+    alertGuards: guards.filter(g => g.status === 'alert').length,
+    totalSites: sites.length,
+    activeSites: sites.filter(s => s.isActive).length,
+  };
 
   // compute missed check-ins (no clock-in today)
   const missedCheckins = guards.filter(g => {
     if (!g.siteId) return false;
     const site = sites.find(s => s.id === g.siteId);
     if (!site || !site.isActive) return false;
-    const attendance = mockAttendanceLogs.find(l => l.guardId === g.id);
+    const attendance = attendanceLogs.find(l => l.guardId === g.id);
     const hasClockedIn = (attendance && attendance.clockIn) ?
       (new Date(attendance.clockIn).toDateString() === new Date().toDateString()) :
       (g.clockInTime ? new Date(g.clockInTime).toDateString() === new Date().toDateString() : false);
@@ -84,7 +149,7 @@ const Index = () => {
     if (!g.siteId) return false;
     const site = sites.find(s => s.id === g.siteId);
     if (!site || !site.isActive) return false;
-    const attendance = mockAttendanceLogs.find(l => l.guardId === g.id);
+    const attendance = attendanceLogs.find(l => l.guardId === g.id);
     const hasClockedIn = (attendance && attendance.clockIn) ?
       (new Date(attendance.clockIn).toDateString() === new Date().toDateString()) :
       (g.clockInTime ? new Date(g.clockInTime).toDateString() === new Date().toDateString() : false);
@@ -175,7 +240,6 @@ const Index = () => {
             value={stats.activeGuards}
             icon={UserCheck}
             variant="success"
-            trend={{ value: 12, isPositive: true }}
             to="/guards?status=online"
           />
           <StatCard
@@ -295,7 +359,7 @@ const Index = () => {
                         <p className="font-medium text-sm">{guard.name}</p>
                         <p className="text-xs text-muted-foreground">{guard.employeeId}</p>
                       </div>
-                            <Badge variant="alert">{(mockAttendanceLogs.find(l => l.guardId === guard.id) || !guard.clockInTime) ? 'Missed Check-in' : 'Alert'}</Badge>
+                            <Badge variant="alert">{(!attendanceLogs.find(l => l.guardId === guard.id) || !guard.clockInTime) ? 'Missed Check-in' : 'Alert'}</Badge>
                     </div>
                   </Link>
                 ))}
@@ -311,7 +375,7 @@ const Index = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Avg. Clock-in Time</p>
-                  <p className="text-2xl font-bold font-mono mt-1">08:42</p>
+                  <p className="text-2xl font-bold font-mono mt-1">{dashboardStats.avgClockInTime}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Clock className="w-6 h-6 text-primary" />
@@ -325,7 +389,7 @@ const Index = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Geofence Compliance</p>
-                  <p className="text-2xl font-bold font-mono mt-1 text-success">94.2%</p>
+                  <p className="text-2xl font-bold font-mono mt-1 text-success">{dashboardStats.geofenceCompliance}%</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center">
                   <MapPin className="w-6 h-6 text-success" />
@@ -338,11 +402,11 @@ const Index = () => {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Wake-up Response Rate</p>
-                  <p className="text-2xl font-bold font-mono mt-1 text-warning">87.5%</p>
+                  <p className="text-sm text-muted-foreground">Clocked In Today</p>
+                  <p className="text-2xl font-bold font-mono mt-1 text-warning">{dashboardStats.clockedInToday}/{dashboardStats.totalGuards}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-warning/10 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6 text-warning" />
+                  <UserCheck className="w-6 h-6 text-warning" />
                 </div>
               </div>
             </CardContent>

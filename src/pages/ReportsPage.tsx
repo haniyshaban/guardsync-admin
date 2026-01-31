@@ -5,10 +5,31 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockAttendanceLogs, mockGuards, mockSites } from '@/data/mockData';
-import { FileText } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { format, parseISO } from 'date-fns';
+import { FileText, Loader2 } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import { format } from 'date-fns';
+
+interface AttendanceRecord {
+  id: string;
+  guardId: string;
+  siteId?: string;
+  clockIn: string;
+  clockOut?: string;
+  withinGeofence: boolean;
+  location?: { lat: number; lng: number };
+  date: string;
+}
+
+interface Guard {
+  id: string;
+  name: string;
+  employeeId: string;
+}
+
+interface Site {
+  id: string;
+  name: string;
+}
 
 export default function ReportsPage() {
   const [fromDate, setFromDate] = useState<string>(new Date().toISOString().slice(0,10));
@@ -17,37 +38,90 @@ export default function ReportsPage() {
   const [toDateObj, setToDateObj] = useState<Date>(new Date(toDate));
   const [siteId, setSiteId] = useState<string>('all');
   const [reportType, setReportType] = useState<string>('attendance');
+  
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [guards, setGuards] = useState<Guard[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const guardsById = useMemo(() => Object.fromEntries(mockGuards.map(g => [g.id, g])), []);
+  // Fetch data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch guards and sites for lookups
+        const [guardsRes, sitesRes] = await Promise.all([
+          fetch('http://localhost:4000/api/guards'),
+          fetch('http://localhost:4000/api/sites'),
+        ]);
+        
+        if (guardsRes.ok) {
+          const guardsData = await guardsRes.json();
+          setGuards(guardsData);
+        }
+        if (sitesRes.ok) {
+          const sitesData = await sitesRes.json();
+          setSites(sitesData);
+        }
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Fetch attendance when filters change
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      try {
+        const params = new URLSearchParams({
+          from: fromDate,
+          to: toDate,
+        });
+        if (siteId !== 'all') params.append('siteId', siteId);
+        
+        const res = await fetch(`http://localhost:4000/api/attendance?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          setAttendance(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch attendance:', err);
+      }
+    };
+    fetchAttendance();
+  }, [fromDate, toDate, siteId]);
+
+  const guardsById = useMemo(() => Object.fromEntries(guards.map(g => [g.id, g])), [guards]);
+  const sitesById = useMemo(() => Object.fromEntries(sites.map(s => [s.id, s])), [sites]);
 
   const filtered = useMemo(() => {
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-    to.setHours(23,59,59,999);
-
-    return mockAttendanceLogs.filter(l => {
-      const time = new Date(l.clockIn || l.clockOut || l.createdAt || l.clockIn);
-      if (isNaN(time.getTime())) return false;
-      if (time < from || time > to) return false;
-      if (siteId !== 'all' && l.siteId !== siteId) return false;
-      return true;
-    }).map(l => ({
+    return attendance.map(l => ({
       ...l,
-      guard: guardsById[l.guardId]
+      guard: guardsById[l.guardId],
+      site: sitesById[l.siteId || ''],
     }));
-  }, [fromDate, toDate, siteId, guardsById]);
+  }, [attendance, guardsById, sitesById]);
 
   function downloadCSV() {
     const rows = filtered.map(r => ({
       id: r.id,
       guardId: r.guardId,
       guardName: r.guard?.name || '',
-      siteId: r.siteId,
+      siteId: r.siteId || '',
+      siteName: r.site?.name || '',
       clockIn: r.clockIn ? new Date(r.clockIn).toISOString() : '',
+      clockOut: r.clockOut ? new Date(r.clockOut).toISOString() : '',
       withinGeofence: String(r.withinGeofence),
     }));
 
-    const header = Object.keys(rows[0] || {}).join(',') + '\n';
+    if (rows.length === 0) {
+      rows.push({ id: '', guardId: '', guardName: '', siteId: '', siteName: '', clockIn: '', clockOut: '', withinGeofence: '' });
+    }
+
+    const header = Object.keys(rows[0]).join(',') + '\n';
     const csv = header + rows.map(row => Object.values(row).map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -64,9 +138,9 @@ export default function ReportsPage() {
         <h2>Report: ${reportType}</h2>
         <p>From: ${fromDate} To: ${toDate}</p>
         <table border="1" cellpadding="6" cellspacing="0">
-          <thead><tr><th>ID</th><th>Guard</th><th>Site</th><th>ClockIn</th><th>WithinGeofence</th></tr></thead>
+          <thead><tr><th>ID</th><th>Guard</th><th>Site</th><th>Clock In</th><th>Clock Out</th><th>Within Geofence</th></tr></thead>
           <tbody>
-            ${filtered.map(r => `<tr><td>${r.id}</td><td>${r.guard?.name || ''}</td><td>${r.siteId}</td><td>${r.clockIn ? new Date(r.clockIn).toLocaleString() : ''}</td><td>${r.withinGeofence}</td></tr>`).join('')}
+            ${filtered.map(r => `<tr><td>${r.id}</td><td>${r.guard?.name || ''}</td><td>${r.site?.name || r.siteId || ''}</td><td>${r.clockIn ? new Date(r.clockIn).toLocaleString() : ''}</td><td>${r.clockOut ? new Date(r.clockOut).toLocaleString() : ''}</td><td>${r.withinGeofence}</td></tr>`).join('')}
           </tbody>
         </table>
       </body></html>`;
@@ -141,7 +215,7 @@ export default function ReportsPage() {
                   <SelectTrigger className="w-full mt-2"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All sites</SelectItem>
-                    {mockSites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    {sites.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -167,7 +241,7 @@ export default function ReportsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Preview ({filtered.length} rows)</CardTitle>
+            <CardTitle>Preview ({filtered.length} rows) {isLoading && <Loader2 className="w-4 h-4 inline ml-2 animate-spin" />}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -178,19 +252,29 @@ export default function ReportsPage() {
                     <th className="p-2">Guard</th>
                     <th className="p-2">Site</th>
                     <th className="p-2">Clock In</th>
+                    <th className="p-2">Clock Out</th>
                     <th className="p-2">Within Geofence</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(r => (
-                    <tr key={r.id} className="border-t">
-                      <td className="p-2 text-sm">{r.id}</td>
-                      <td className="p-2 text-sm">{r.guard?.name || r.guardId}</td>
-                      <td className="p-2 text-sm">{r.siteId}</td>
-                      <td className="p-2 text-sm">{r.clockIn ? format(new Date(r.clockIn), 'PPpp') : '—'}</td>
-                      <td className="p-2 text-sm">{String(r.withinGeofence)}</td>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-4 text-center text-muted-foreground">
+                        {isLoading ? 'Loading...' : 'No attendance records found for the selected filters.'}
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filtered.map(r => (
+                      <tr key={r.id} className="border-t">
+                        <td className="p-2 text-sm">{r.id}</td>
+                        <td className="p-2 text-sm">{r.guard?.name || r.guardId}</td>
+                        <td className="p-2 text-sm">{r.site?.name || r.siteId || '—'}</td>
+                        <td className="p-2 text-sm">{r.clockIn ? format(new Date(r.clockIn), 'PPpp') : '—'}</td>
+                        <td className="p-2 text-sm">{r.clockOut ? format(new Date(r.clockOut), 'PPpp') : '—'}</td>
+                        <td className="p-2 text-sm">{r.withinGeofence ? '✓ Yes' : '✗ No'}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { mockGuards, mockSites } from '@/data/mockData';
 import { useState, useEffect, useRef } from 'react';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 import SendMessageDialog from '@/components/ui/SendMessageDialog';
@@ -24,32 +23,45 @@ import { Guard, Site } from '@/types';
 import { useSearchParams, Link } from 'react-router-dom';
 
 export default function LiveMapPage() {
-  const [guards, setGuards] = useState(mockGuards);
-  const [sites] = useState(mockSites);
+  const [guards, setGuards] = useState<Guard[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
 
+  // Fetch sites from API
   useEffect(() => {
-    const onUpdate = () => setGuards([...mockGuards]);
-    window.addEventListener('guards-updated', onUpdate as EventListener);
-    return () => window.removeEventListener('guards-updated', onUpdate as EventListener);
+    const loadSites = async () => {
+      try {
+        const res = await fetch('http://localhost:4000/api/sites');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setSites(data);
+          }
+        }
+      } catch (e) {
+        console.log('Could not load sites from backend', e);
+      }
+    };
+    loadSites();
   }, []);
-  // fetch guards from backend and sync into in-memory mockGuards
+
+  // Fetch guards from API
   useEffect(() => {
-    const load = async () => {
+    const loadGuards = async () => {
       try {
         const res = await fetch('http://localhost:4000/api/guards');
-        if (!res.ok) throw new Error('Failed to fetch guards');
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          mockGuards.length = 0;
-          data.forEach((g: any) => mockGuards.push(g));
-          setGuards([...mockGuards]);
-          try { window.dispatchEvent(new CustomEvent('guards-updated')); } catch (e) {}
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            setGuards(data);
+          }
         }
       } catch (e) {
         console.log('Could not load guards from backend', e);
       }
     };
-    load();
+    loadGuards();
+    const interval = setInterval(loadGuards, 15000); // Refresh every 15 seconds
+    return () => clearInterval(interval);
   }, []);
   const [showSites, setShowSites] = useState(true);
   const [showGuards, setShowGuards] = useState(true);

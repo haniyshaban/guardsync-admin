@@ -9,7 +9,7 @@ import {
   CommandItem,
   CommandSeparator,
 } from '@/components/ui/command';
-import { mockGuards, mockSites } from '@/data/mockData';
+import { Guard, Site } from '@/types';
 
 type Item = {
   id: string;
@@ -21,6 +21,31 @@ type Item = {
 export default function CommandSearch() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [guards, setGuards] = useState<Guard[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
+
+  // Fetch guards and sites from API
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [guardsRes, sitesRes] = await Promise.all([
+          fetch('http://localhost:4000/api/guards'),
+          fetch('http://localhost:4000/api/sites'),
+        ]);
+        if (guardsRes.ok) {
+          const data = await guardsRes.json();
+          if (Array.isArray(data)) setGuards(data);
+        }
+        if (sitesRes.ok) {
+          const data = await sitesRes.json();
+          if (Array.isArray(data)) setSites(data);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    loadData();
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -40,20 +65,20 @@ export default function CommandSearch() {
   }, []);
 
   const items: Item[] = useMemo(() => {
-    const guards = mockGuards.map(g => ({
+    const guardItems = guards.map(g => ({
       id: g.id,
       type: 'guard' as const,
-      title: g.name,
-      subtitle: g.employeeId,
+      title: g.name || 'Unknown',
+      subtitle: g.employeeId || '',
     }));
-    const sites = mockSites.map(s => ({
+    const siteItems = sites.map(s => ({
       id: s.id,
       type: 'site' as const,
       title: s.name,
       subtitle: s.address,
     }));
-    return [...guards, ...sites];
-  }, []);
+    return [...guardItems, ...siteItems];
+  }, [guards, sites]);
 
   const onSelect = (item: Item) => {
     setOpen(false);

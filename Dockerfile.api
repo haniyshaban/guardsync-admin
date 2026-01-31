@@ -1,0 +1,19 @@
+# API Server Dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy server files
+COPY server ./server
+
+# Expose API port
+EXPOSE 4000
+
+# Start the API server
+CMD ["node", "server/index.js"]

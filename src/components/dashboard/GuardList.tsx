@@ -1,5 +1,4 @@
 import { Guard } from '@/types';
-import { mockSites } from '@/data/mockData';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -61,7 +60,7 @@ export function GuardList({
                 "w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold",
                 guard.status === 'alert' && "ring-2 ring-destructive ring-offset-2 ring-offset-background"
               )}>
-                {guard.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                {(guard.name || '??').split(' ').map(n => n[0]).join('').slice(0, 2)}
               </div>
               <div className={cn(
                 "absolute -bottom-0.5 -right-0.5 status-dot border-2 border-background",
@@ -81,12 +80,7 @@ export function GuardList({
                 {guard.employeeId}
               </p>
               <div className="text-xs text-muted-foreground">
-                {(() => {
-                  const site = mockSites.find(s => s.id === guard.siteId);
-                  if (!site || !(site as any).shifts) return null;
-                  const s = (site as any).shifts.find((ss: any) => ss.id === guard.currentShiftId);
-                  return s ? (s.label || `${s.startTime}-${s.endTime}`) : null;
-                })()}
+                {guard.shiftType === 'day' ? 'Day Shift' : guard.shiftType === 'night' ? 'Night Shift' : null}
               </div>
             </div>
 
@@ -94,7 +88,7 @@ export function GuardList({
             <div className="text-right flex flex-col items-end gap-2">
               <div>
                 <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(guard.lastSeen, { addSuffix: true })}
+                  {guard.lastSeen ? formatDistanceToNow(new Date(guard.lastSeen), { addSuffix: true }) : 'Never seen'}
                 </p>
                 {guard.clockedIn && (
                   <p className="text-xs text-success">Clocked In</p>
