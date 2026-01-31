@@ -99,9 +99,10 @@ export interface SystemConfig {
   usePremiumAPIs: boolean;
   faceRecognition: 'local' | 'aws-rekognition';
   mapProvider: 'openstreetmap' | 'google-maps';
-  wakeUpIntervalHours: number;
-  geofenceDefaultRadius: number;
-  offlineSyncInterval: number;
+  locationUpdateInterval: number;
+  geofenceStrictness: 'low' | 'medium' | 'high';
+  autoClockOut: boolean;
+  updatedAt?: string;
 }
 
 export interface DashboardStats {

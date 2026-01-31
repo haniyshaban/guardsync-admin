@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { API_BASE_URL } from '@/lib/utils';
 import { useState, useEffect, useRef } from 'react';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 import SendMessageDialog from '@/components/ui/SendMessageDialog';
@@ -30,7 +31,7 @@ export default function LiveMapPage() {
   useEffect(() => {
     const loadSites = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/sites');
+        const res = await fetch(`${API_BASE_URL}/api/sites`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -48,7 +49,7 @@ export default function LiveMapPage() {
   useEffect(() => {
     const loadGuards = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/guards');
+        const res = await fetch(`${API_BASE_URL}/api/guards`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {

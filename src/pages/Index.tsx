@@ -3,6 +3,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { GuardList } from '@/components/dashboard/GuardList';
 import { LiveMap } from '@/components/map/LiveMap';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { API_BASE_URL } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Guard, Site, AttendanceLog } from '@/types';
@@ -37,7 +38,7 @@ const Index = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/stats/dashboard');
+        const res = await fetch(`${API_BASE_URL}/api/stats/dashboard`);
         if (res.ok) {
           const data = await res.json();
           setDashboardStats(data);
@@ -55,7 +56,7 @@ const Index = () => {
   useEffect(() => {
     const loadGuards = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/guards');
+        const res = await fetch(`${API_BASE_URL}/api/guards`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -75,7 +76,7 @@ const Index = () => {
   useEffect(() => {
     const loadSites = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/sites');
+        const res = await fetch(`${API_BASE_URL}/api/sites`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -94,7 +95,7 @@ const Index = () => {
     const loadAttendance = async () => {
       try {
         const today = new Date().toISOString().slice(0, 10);
-        const res = await fetch(`http://localhost:4000/api/attendance?date=${today}`);
+        const res = await fetch(`${API_BASE_URL}/api/attendance?date=${today}`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {

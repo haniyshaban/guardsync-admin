@@ -73,6 +73,8 @@
     --gradient-dark: linear-gradient(180deg, hsl(222 47% 8%), hsl(222 47% 4%));
     --gradient-card: linear-gradient(145deg, hsl(222 47% 10%), hsl(222 47% 6%));
     --gradient-glow: radial-gradient(ellipse at center, hsl(192 95% 50% / 0.15), transparent 70%);
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%) 0%, hsl(160 84% 39%) 100%);
 
     /* Shadows */
     --shadow-glow: 0 0 20px hsl(192 95% 50% / 0.3);
@@ -123,6 +125,21 @@
     font-family: var(--font-mono);
   }
 
+  /* Glass card effect */
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-white/10 rounded-lg;
+    background-image: var(--gradient-glass);
+  }
+
+  /* Gradient utilities */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-success {
+    background: linear-gradient(135deg, hsl(var(--success)) 0%, hsl(160 84% 39%) 100%);
+  }
+
   /* Glow effects */
   .glow-primary {
     box-shadow: var(--shadow-glow);
@@ -132,12 +149,28 @@
     text-shadow: 0 0 20px hsl(192 95% 50% / 0.5);
   }
 
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
   /* Status indicators */
   .status-dot {
     @apply w-2.5 h-2.5 rounded-full;
   }
 
+  .status-indicator {
+    @apply w-2.5 h-2.5 rounded-full;
+  }
+
   .status-online {
+    @apply bg-[hsl(var(--status-online))];
+    box-shadow: 0 0 8px hsl(var(--status-online) / 0.6);
+  }
+
+  .status-active {
     @apply bg-[hsl(var(--status-online))];
     box-shadow: 0 0 8px hsl(var(--status-online) / 0.6);
   }
@@ -177,6 +210,17 @@
   .card-glow {
     @apply card-elevated;
     box-shadow: var(--shadow-glow), var(--shadow-card);
+  }
+
+  /* Animation utilities */
+  .scan-line {
+    @apply absolute left-0 right-0 h-0.5 bg-primary;
+    animation: scan 2s ease-in-out infinite;
+  }
+
+  .pulse-ring {
+    @apply absolute inset-0 rounded-full border-2 border-primary;
+    animation: pulse-ring 1.5s ease-out infinite;
   }
 
   /* Map styles */
@@ -258,9 +302,30 @@
   }
 }
 
-@layer utilities {
-  .text-gradient {
-    @apply bg-clip-text text-transparent;
-    background-image: var(--gradient-primary);
+@keyframes scan {
+  0%, 100% {
+    top: 10%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    top: 90%;
+    opacity: 1;
+  }
+  60% {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
   }
 }

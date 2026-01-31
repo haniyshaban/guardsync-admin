@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { API_BASE_URL } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Guard, Site } from '@/types';
@@ -36,7 +37,7 @@ export default function GuardsPage() {
   useEffect(() => {
     const loadGuards = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/guards');
+        const res = await fetch(`${API_BASE_URL}/api/guards`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -56,7 +57,7 @@ export default function GuardsPage() {
   useEffect(() => {
     const loadSites = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/sites');
+        const res = await fetch(`${API_BASE_URL}/api/sites`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {

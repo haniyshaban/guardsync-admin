@@ -10,6 +10,7 @@ import {
   CommandSeparator,
 } from '@/components/ui/command';
 import { Guard, Site } from '@/types';
+import { API_BASE_URL } from '@/lib/utils';
 
 type Item = {
   id: string;
@@ -29,8 +30,8 @@ export default function CommandSearch() {
     const loadData = async () => {
       try {
         const [guardsRes, sitesRes] = await Promise.all([
-          fetch('http://localhost:4000/api/guards'),
-          fetch('http://localhost:4000/api/sites'),
+          fetch(`${API_BASE_URL}/api/guards`),
+          fetch(`${API_BASE_URL}/api/sites`),
         ]);
         if (guardsRes.ok) {
           const data = await guardsRes.json();

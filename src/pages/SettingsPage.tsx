@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useState, useEffect } from 'react';
 import { SystemConfig } from '@/types';
+import { API_BASE_URL } from '@/lib/utils';
 import { 
   Settings, 
   Sparkles, 
@@ -24,13 +25,14 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// Default config values
+// Default config values matching the server schema
 const defaultSystemConfig: SystemConfig = {
-  geofenceEnabled: true,
-  facialRecEnabled: true,
-  autoClockOutMinutes: 480,
-  offlineToleranceMinutes: 15,
-  panicAlertEnabled: true,
+  usePremiumAPIs: false,
+  faceRecognition: 'local',
+  mapProvider: 'openstreetmap',
+  locationUpdateInterval: 30,
+  geofenceStrictness: 'medium',
+  autoClockOut: true,
 };
 
 export default function SettingsPage() {
@@ -44,7 +46,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/config');
+        const res = await fetch(`${API_BASE_URL}/api/config`);
         if (res.ok) {
           const data = await res.json();
           setConfig(prev => ({ ...prev, ...data }));
@@ -66,7 +68,7 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch('http://localhost:4000/api/config', {
+      const res = await fetch(`${API_BASE_URL}/api/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -353,47 +355,48 @@ export default function SettingsPage() {
           <CardContent className="space-y-6">
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="wakeup-interval">Wake-up Alert Interval (hours)</Label>
+                <Label htmlFor="location-interval">Location Update Interval (seconds)</Label>
                 <Input
-                  id="wakeup-interval"
+                  id="location-interval"
                   type="number"
-                  value={config.wakeUpIntervalHours}
-                  onChange={(e) => updateConfig('wakeUpIntervalHours', parseInt(e.target.value) || 2)}
-                  min={1}
-                  max={8}
+                  value={config.locationUpdateInterval}
+                  onChange={(e) => updateConfig('locationUpdateInterval', parseInt(e.target.value) || 30)}
+                  min={10}
+                  max={120}
                 />
                 <p className="text-xs text-muted-foreground">
-                  How often guards receive wake-up notifications
+                  How often guard locations are updated
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="geofence-radius">Default Geofence Radius (meters)</Label>
-                <Input
-                  id="geofence-radius"
-                  type="number"
-                  value={config.geofenceDefaultRadius}
-                  onChange={(e) => updateConfig('geofenceDefaultRadius', parseInt(e.target.value) || 100)}
-                  min={50}
-                  max={500}
-                />
+                <Label htmlFor="geofence-strictness">Geofence Strictness</Label>
+                <select
+                  id="geofence-strictness"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={config.geofenceStrictness}
+                  onChange={(e) => updateConfig('geofenceStrictness', e.target.value as 'low' | 'medium' | 'high')}
+                >
+                  <option value="low">Low - Allow some tolerance</option>
+                  <option value="medium">Medium - Balanced</option>
+                  <option value="high">High - Strict enforcement</option>
+                </select>
                 <p className="text-xs text-muted-foreground">
-                  Default radius for new site geofences
+                  How strictly geofence boundaries are enforced
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sync-interval">Offline Sync Interval (minutes)</Label>
-                <Input
-                  id="sync-interval"
-                  type="number"
-                  value={config.offlineSyncInterval}
-                  onChange={(e) => updateConfig('offlineSyncInterval', parseInt(e.target.value) || 5)}
-                  min={1}
-                  max={30}
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="auto-clockout">Auto Clock-Out</Label>
+                  <Switch
+                    id="auto-clockout"
+                    checked={config.autoClockOut}
+                    onCheckedChange={(checked) => updateConfig('autoClockOut', checked)}
+                  />
+                </div>
                 <p className="text-xs text-muted-foreground">
-                  How often the mobile app syncs offline data
+                  Automatically clock out guards at end of shift
                 </p>
               </div>
             </div>

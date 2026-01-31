@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Guard, Site, AttendanceLog } from '@/types';
 import { toast as sonnerToast } from '@/components/ui/sonner';
+import { API_BASE_URL } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { 
   Bell, 
@@ -45,7 +46,7 @@ export default function AlertsPage() {
   useEffect(() => {
     const loadGuards = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/guards');
+        const res = await fetch(`${API_BASE_URL}/api/guards`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -63,7 +64,7 @@ export default function AlertsPage() {
   useEffect(() => {
     const loadSites = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/sites');
+        const res = await fetch(`${API_BASE_URL}/api/sites`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -82,7 +83,7 @@ export default function AlertsPage() {
     const loadAttendance = async () => {
       try {
         const today = new Date().toISOString().slice(0, 10);
-        const res = await fetch(`http://localhost:4000/api/attendance?date=${today}`);
+        const res = await fetch(`${API_BASE_URL}/api/attendance?date=${today}`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -100,7 +101,7 @@ export default function AlertsPage() {
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/sos-alerts?status=active');
+        const res = await fetch(`${API_BASE_URL}/api/sos-alerts?status=active`);
         if (res.ok) {
           const data = await res.json();
           setSosAlerts(data);
@@ -122,7 +123,7 @@ export default function AlertsPage() {
   // Resolve SOS alert
   const handleResolveSOS = async (alertId: string) => {
     try {
-      const res = await fetch(`http://localhost:4000/api/sos-alerts/${alertId}/resolve`, {
+      const res = await fetch(`${API_BASE_URL}/api/sos-alerts/${alertId}/resolve`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolvedBy: 'Admin', resolvedNotes: 'Resolved from dashboard' }),
@@ -324,7 +325,7 @@ export default function AlertsPage() {
                       <Button variant="success" size="sm" onClick={async (e) => {
                         e.stopPropagation();
                         try {
-                          const res = await fetch(`http://localhost:4000/api/guards/${guard.id}`, {
+                          const res = await fetch(`${API_BASE_URL}/api/guards/${guard.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ status: 'idle', lastSeen: new Date().toISOString() }),

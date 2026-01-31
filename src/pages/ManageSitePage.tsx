@@ -14,6 +14,7 @@ import { MapContainer, TileLayer, Marker, Polygon, Circle, useMapEvents } from '
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Guard } from '@/types';
+import { API_BASE_URL } from '@/lib/utils';
 
 interface PatrolCheckpoint {
   id: string;
@@ -54,7 +55,7 @@ export default function ManageSitePage() {
   useEffect(() => {
     const loadGuards = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/guards');
+        const res = await fetch(`${API_BASE_URL}/api/guards`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -72,7 +73,7 @@ export default function ManageSitePage() {
   useEffect(() => {
     const loadSite = async () => {
       try {
-        const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(siteId)}`);
+        const res = await fetch(`${API_BASE_URL}/api/sites/${encodeURIComponent(siteId)}`);
         if (res.ok) {
           const data = await res.json();
           setSite(data);
@@ -191,7 +192,7 @@ export default function ManageSitePage() {
       };
 
       // Save to API
-      const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+      const res = await fetch(`${API_BASE_URL}/api/sites/${encodeURIComponent(String(site.id))}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedSite),
@@ -200,7 +201,7 @@ export default function ManageSitePage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       // Fetch the updated site from server
-      const getRes = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`);
+      const getRes = await fetch(`${API_BASE_URL}/api/sites/${encodeURIComponent(String(site.id))}`);
       const savedSite = getRes.ok ? await getRes.json() : updatedSite;
 
       // update allGuards state with new assignments
@@ -217,7 +218,7 @@ export default function ManageSitePage() {
       for (const guardId of assignedGuardIds) {
         const guard = allGuards.find(g => g.id === guardId);
         if (guard) {
-          await fetch(`http://localhost:4000/api/guards/${guardId}`, {
+          await fetch(`${API_BASE_URL}/api/guards/${guardId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...guard, siteId: site.id }),
@@ -243,7 +244,7 @@ export default function ManageSitePage() {
     const guard = allGuards.find(g => g.id === guardId);
     if (guard) {
       try {
-        await fetch(`http://localhost:4000/api/guards/${guardId}`, {
+        await fetch(`${API_BASE_URL}/api/guards/${guardId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...guard, siteId: null }),
@@ -264,7 +265,7 @@ export default function ManageSitePage() {
     if (!ok) return;
     try {
       // Delete from API
-      const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+      const res = await fetch(`${API_BASE_URL}/api/sites/${encodeURIComponent(String(site.id))}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -314,7 +315,7 @@ export default function ManageSitePage() {
                           setIsActive(true);
                           // Update immediately on server
                           try {
-                            await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+                            await fetch(`${API_BASE_URL}/api/sites/${encodeURIComponent(String(site.id))}`, {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ ...site, isActive: true }),
@@ -332,7 +333,7 @@ export default function ManageSitePage() {
                           setIsActive(false);
                           // Update immediately on server
                           try {
-                            await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(site.id))}`, {
+                            await fetch(`${API_BASE_URL}/api/sites/${encodeURIComponent(String(site.id))}`, {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ ...site, isActive: false }),

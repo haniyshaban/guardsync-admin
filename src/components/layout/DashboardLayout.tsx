@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import EmergencyOverlay from './EmergencyOverlay';
 import CommandSearch from '@/components/ui/CommandSearch';
 import { Guard } from '@/types';
+import { API_BASE_URL } from '@/lib/utils';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -22,7 +23,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     const loadGuards = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/guards');
+        const res = await fetch(`${API_BASE_URL}/api/guards`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) setGuards(data);

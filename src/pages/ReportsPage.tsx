@@ -6,6 +6,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, Loader2 } from 'lucide-react';
+import { API_BASE_URL } from '@/lib/utils';
 import { useMemo, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 
@@ -51,8 +52,8 @@ export default function ReportsPage() {
       try {
         // Fetch guards and sites for lookups
         const [guardsRes, sitesRes] = await Promise.all([
-          fetch('http://localhost:4000/api/guards'),
-          fetch('http://localhost:4000/api/sites'),
+          fetch(`${API_BASE_URL}/api/guards`),
+          fetch(`${API_BASE_URL}/api/sites`),
         ]);
         
         if (guardsRes.ok) {
@@ -82,7 +83,7 @@ export default function ReportsPage() {
         });
         if (siteId !== 'all') params.append('siteId', siteId);
         
-        const res = await fetch(`http://localhost:4000/api/attendance?${params}`);
+        const res = await fetch(`${API_BASE_URL}/api/attendance?${params}`);
         if (res.ok) {
           const data = await res.json();
           setAttendance(data);

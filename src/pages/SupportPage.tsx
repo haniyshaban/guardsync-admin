@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Send, Inbox, CheckCircle, Clock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { API_BASE_URL } from '@/lib/utils';
 
 interface SupportTicket {
   id: string;
@@ -35,7 +36,7 @@ export default function SupportPage() {
   useEffect(() => {
     const fetchTickets = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/support-tickets');
+        const res = await fetch(`${API_BASE_URL}/api/support-tickets`);
         if (res.ok) {
           const data = await res.json();
           setTickets(data);
@@ -62,7 +63,7 @@ export default function SupportPage() {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('http://localhost:4000/api/support-tickets', {
+      const res = await fetch(`${API_BASE_URL}/api/support-tickets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, subject, message }),

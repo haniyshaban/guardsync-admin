@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Guard, Site } from '@/types';
+import { API_BASE_URL } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { MapContainer, TileLayer, Marker, Polygon, useMapEvents } from 'react-leaflet';
@@ -39,7 +40,7 @@ export default function SitesPage() {
   useEffect(() => {
     const loadGuards = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/guards');
+        const res = await fetch(`${API_BASE_URL}/api/guards`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
@@ -58,7 +59,7 @@ export default function SitesPage() {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch('http://localhost:4000/api/sites');
+        const res = await fetch(`${API_BASE_URL}/api/sites`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (cancelled) return;
@@ -245,7 +246,7 @@ export default function SitesPage() {
                   }
 
                   try {
-                    const res = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(activeSite.id))}`, {
+                    const res = await fetch(`${API_BASE_URL}/api/sites/${encodeURIComponent(String(activeSite.id))}`, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(updatedSite),
@@ -257,7 +258,7 @@ export default function SitesPage() {
                     // server may only return { ok: true } — fetch the authoritative record
                     let savedSite: any = null;
                     if (putResult && putResult.ok) {
-                      const getRes = await fetch(`http://localhost:4000/api/sites/${encodeURIComponent(String(activeSite.id))}`);
+                      const getRes = await fetch(`${API_BASE_URL}/api/sites/${encodeURIComponent(String(activeSite.id))}`);
                       console.log('[SitesPage] fetching authoritative site after PUT');
                       if (getRes.ok) savedSite = await getRes.json();
                       console.log('[SitesPage] GET result:', savedSite);

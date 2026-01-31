@@ -3,6 +3,7 @@ import { Guard } from '@/types';
 import { Button } from '@/components/ui/button';
 import { toast as sonnerToast } from '@/components/ui/sonner';
 import { useSidebar } from './SidebarContext';
+import { API_BASE_URL } from '@/lib/utils';
 
 interface EmergencyOverlayProps {
   guards?: Guard[];
@@ -37,7 +38,7 @@ export function EmergencyOverlay({ guards = [] }: EmergencyOverlayProps) {
     // Update panic guards to online status via API
     try {
       for (const g of panicGuards) {
-        await fetch(`http://localhost:4000/api/guards/${g.id}`, {
+        await fetch(`${API_BASE_URL}/api/guards/${g.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'online', lastSeen: new Date().toISOString() }),

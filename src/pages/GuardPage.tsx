@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Guard, Site, AttendanceLog, Shift } from '@/types';
+import { API_BASE_URL } from '@/lib/utils';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, format, isSameDay } from 'date-fns';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -105,7 +106,7 @@ const GuardPage = () => {
   useEffect(() => {
     const loadGuard = async () => {
       try {
-        const res = await fetch(`http://localhost:4000/api/guards/${id}`);
+        const res = await fetch(`${API_BASE_URL}/api/guards/${id}`);
         if (res.ok) {
           const data = await res.json();
           setGuard(data);
@@ -125,7 +126,7 @@ const GuardPage = () => {
   useEffect(() => {
     const loadSites = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/sites');
+        const res = await fetch(`${API_BASE_URL}/api/sites`);
         if (res.ok) {
           const data = await res.json();
           setSites(data);
@@ -143,7 +144,7 @@ const GuardPage = () => {
       if (!id) return;
       try {
         const today = new Date().toISOString().slice(0, 10);
-        const res = await fetch(`http://localhost:4000/api/attendance?guardId=${id}&date=${today}`);
+        const res = await fetch(`${API_BASE_URL}/api/attendance?guardId=${id}&date=${today}`);
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
@@ -165,7 +166,7 @@ const GuardPage = () => {
     }
     const loadSite = async () => {
       try {
-        const res = await fetch(`http://localhost:4000/api/sites/${guard.siteId}`);
+        const res = await fetch(`${API_BASE_URL}/api/sites/${guard.siteId}`);
         if (res.ok) {
           const data = await res.json();
           setSite(data);
@@ -180,7 +181,7 @@ const GuardPage = () => {
   const saveGuardChanges = async () => {
     if (!guard) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/guards/${guard.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/guards/${guard.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...guard, ...editedGuard }),
@@ -199,7 +200,7 @@ const GuardPage = () => {
   const assignToSite = async () => {
     if (!guard) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/guards/${guard.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/guards/${guard.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...guard, siteId: selectedSiteId }),
@@ -235,7 +236,7 @@ const GuardPage = () => {
         shiftData.shiftEndTime = null;
       }
       
-      const res = await fetch(`http://localhost:4000/api/guards/${guard.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/guards/${guard.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...guard, ...shiftData }),
@@ -259,7 +260,7 @@ const GuardPage = () => {
     
     setIsDeleting(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/guards/${guard.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/guards/${guard.id}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -278,11 +279,9 @@ const GuardPage = () => {
     }
   };
 
-  const API_BASE = 'http://localhost:4000';
-
   const openDocumentPreview = (url: string, title: string) => {
     // Prepend API base URL if the URL is a relative path
-    const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+    const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
     setPreviewDocument({ url: fullUrl, title });
     setShowDocumentPreview(true);
   };
@@ -292,7 +291,7 @@ const GuardPage = () => {
     
     setIsApproving(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/guards/${guard.id}/approve`, {
+      const res = await fetch(`${API_BASE_URL}/api/guards/${guard.id}/approve`, {
         method: 'POST',
       });
       if (res.ok) {
@@ -318,7 +317,7 @@ const GuardPage = () => {
     
     setIsRejecting(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/guards/${guard.id}/reject`, {
+      const res = await fetch(`${API_BASE_URL}/api/guards/${guard.id}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: rejectReason }),
